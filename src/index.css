@@ -1,0 +1,208 @@
+@import "tailwindcss";
+
+/* Class-based dark mode so we can drive it from theme selector (light/dark/system) */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Sonar Brand Theme Configuration (Tailwind CSS v4) */
+@theme {
+  /* Sonar Brand Colors */
+  --color-sonar-blue*: #126ED3;
+  --color-sonar-blue-light*: #B7D3F2;
+  --color-sonar-blue-secondary*: #0C5DB5;
+  --color-sonar-purple*: #290042;
+  --color-sonar-purple-dark*: #1a0029;
+  --color-sonar-teal*: #1B998B;
+  --color-sonar-background*: #EEFCFC;
+  /* Secondary text (body, captions) - readable on white/light backgrounds per BRAND_COLORS_REFERENCE */
+  --color-sonar-text-secondary*: #69809B;
+
+  /* Font Families */
+  --font-sans*: 'Poppins', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-body*: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-mono*: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+/* Ensure brand variables exist on :root so component classes and utilities resolve */
+@layer base {
+  :root {
+    /* Sonar brand colors */
+    --color-sonar-blue: #126ED3;
+    --color-sonar-blue-light: #B7D3F2;
+    --color-sonar-blue-secondary: #0C5DB5;
+    --color-sonar-purple: #290042;
+    --color-sonar-purple-dark: #1a0029;
+    --color-sonar-teal: #1B998B;
+    --color-sonar-teal-dark: #15857a; /* hover for teal buttons */
+    --color-sonar-background: #EEFCFC;
+    --color-sonar-text-secondary: #69809B;
+    /* Sonar brand fonts (Poppins + Inter loaded in index.html) */
+    --font-sans: 'Poppins', ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --font-body: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+
+  /* Dark theme: page background variable so bg-sonar-background reacts to light/dark */
+  .dark {
+    --color-sonar-background: #020617; /* slate-950, matches dark page background */
+  }
+}
+
+@layer base {
+  /* Sonar Brand Base Styles */
+  body {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Apply Inter font to body text elements */
+  p, span, label, input, textarea, select {
+    font-family: var(--font-body);
+  }
+
+  /* Headings use Poppins */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-sans);
+    font-weight: 600;
+  }
+}
+
+@layer components {
+  /* Sonar-branded button styles */
+  .btn-sonar-primary {
+    background-color: var(--color-sonar-blue);
+    color: white;
+    font-weight: 600;
+    border-radius: 0.5rem;
+    transition: all 200ms;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  }
+
+  .btn-sonar-primary:hover {
+    background-color: var(--color-sonar-blue-secondary);
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+  }
+
+  .btn-sonar-secondary {
+    background-color: var(--color-sonar-purple);
+    color: white;
+    font-weight: 600;
+    border-radius: 0.5rem;
+    transition: all 200ms;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  }
+
+  .btn-sonar-secondary:hover {
+    background-color: var(--color-sonar-purple-dark);
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+  }
+
+  /* Accent button (Teal) – pairs with blue, use for secondary CTAs like Add cost center, Generate PDF */
+  .btn-sonar-accent {
+    background-color: var(--color-sonar-teal);
+    color: white;
+    font-weight: 600;
+    border-radius: 0.5rem;
+    transition: all 200ms;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  }
+
+  .btn-sonar-accent:hover {
+    background-color: var(--color-sonar-teal-dark);
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+  }
+
+  /* Outline button – blue border + text, light fill; alternative for secondary actions */
+  .btn-sonar-outline {
+    background-color: transparent;
+    color: var(--color-sonar-blue);
+    border: 2px solid var(--color-sonar-blue);
+    font-weight: 600;
+    border-radius: 0.5rem;
+    transition: all 200ms;
+  }
+
+  .btn-sonar-outline:hover {
+    background-color: color-mix(in srgb, var(--color-sonar-blue) 10%, transparent);
+    border-color: var(--color-sonar-blue-secondary);
+    color: var(--color-sonar-blue-secondary);
+  }
+
+  /* Danger button (destructive: Logout, Delete, Remove) – same shape as Sonar buttons, semantic red */
+  .btn-sonar-danger {
+    background-color: #dc2626;
+    color: white;
+    font-weight: 600;
+    border-radius: 0.5rem;
+    transition: all 200ms;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  }
+
+  .btn-sonar-danger:hover {
+    background-color: #b91c1c;
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+  }
+
+  /* Sonar-branded input styles */
+  .input-sonar {
+    border: 2px solid #d1d5db;
+    border-radius: 0.5rem;
+    transition: all 200ms;
+    font-family: var(--font-body);
+  }
+
+  .input-sonar:focus {
+    outline: none;
+    border-color: var(--color-sonar-blue);
+    box-shadow: 0 0 0 3px rgba(18, 110, 211, 0.1);
+  }
+
+  /* Sonar-branded card styles */
+  .card-sonar {
+    background-color: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+    border-top: 4px solid var(--color-sonar-blue);
+  }
+
+  /* Sonar color utilities – use :root variables so colors always resolve */
+  .bg-sonar-blue { background-color: var(--color-sonar-blue) !important; }
+  .bg-sonar-blue\/5 { background-color: color-mix(in srgb, var(--color-sonar-blue) 5%, transparent) !important; }
+  .bg-sonar-blue\/10 { background-color: color-mix(in srgb, var(--color-sonar-blue) 10%, transparent) !important; }
+  .bg-sonar-blue\/20 { background-color: color-mix(in srgb, var(--color-sonar-blue) 20%, transparent) !important; }
+  .bg-sonar-blue-secondary { background-color: var(--color-sonar-blue-secondary) !important; }
+  .bg-sonar-blue-light { background-color: var(--color-sonar-blue-light) !important; }
+  .bg-sonar-purple { background-color: var(--color-sonar-purple) !important; }
+  .bg-sonar-purple-dark { background-color: var(--color-sonar-purple-dark) !important; }
+  .bg-sonar-background { background-color: var(--color-sonar-background) !important; }
+  .bg-sonar-teal { background-color: var(--color-sonar-teal) !important; }
+
+  /* No !important on text colors so dark: overrides (e.g. dark:text-white) can win in dark mode */
+  .text-sonar-blue { color: var(--color-sonar-blue); }
+  .text-sonar-blue-secondary { color: var(--color-sonar-blue-secondary); }
+  .text-sonar-purple { color: var(--color-sonar-purple); }
+  .text-sonar-teal { color: var(--color-sonar-teal); }
+
+  .border-sonar-blue { border-color: var(--color-sonar-blue) !important; }
+  .border-sonar-blue\/10 { border-color: color-mix(in srgb, var(--color-sonar-blue) 10%, transparent) !important; }
+  .border-sonar-blue\/20 { border-color: color-mix(in srgb, var(--color-sonar-blue) 20%, transparent) !important; }
+
+  .focus\:ring-sonar-blue:focus { --tw-ring-color: var(--color-sonar-blue) !important; }
+  .focus\:border-sonar-blue:focus { border-color: var(--color-sonar-blue) !important; }
+  .hover\:border-sonar-blue:hover { border-color: var(--color-sonar-blue) !important; }
+  .hover\:text-sonar-blue:hover { color: var(--color-sonar-blue) !important; }
+  .hover\:text-sonar-blue-secondary:hover { color: var(--color-sonar-blue-secondary) !important; }
+
+  .from-sonar-blue { --tw-gradient-from: var(--color-sonar-blue); --tw-gradient-to: var(--color-sonar-blue); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important; }
+  .to-sonar-blue-secondary { --tw-gradient-to: var(--color-sonar-blue-secondary) !important; }
+  .from-sonar-background { --tw-gradient-from: var(--color-sonar-background); --tw-gradient-to: var(--color-sonar-background); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important; }
+  .to-sonar-blue-light { --tw-gradient-to: var(--color-sonar-blue-light) !important; }
+
+  .dark .dark\:bg-sonar-blue\/10 { background-color: color-mix(in srgb, var(--color-sonar-blue) 10%, transparent) !important; }
+  .dark .dark\:bg-sonar-blue\/20 { background-color: color-mix(in srgb, var(--color-sonar-blue) 20%, transparent) !important; }
+
+  /* Sonar font utilities – use :root variables so fonts always resolve */
+  .font-sans { font-family: var(--font-sans) !important; }
+  .font-body { font-family: var(--font-body) !important; }
+  .font-mono { font-family: var(--font-mono) !important; }
+}

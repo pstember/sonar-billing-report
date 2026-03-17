@@ -1,0 +1,758 @@
+/**
+ * Main Billing Dashboard
+ * Integrates all billing components
+ */
+
+import { useState, useEffect, useMemo } from 'react';
+import { clearAuth } from '../../services/db';
+import CostCenters from './CostCenters';
+import CostCalculator from './CostCalculator';
+import LOCTrendChart from '../Charts/LOCTrendChart';
+import TeamCostPieChart from '../Charts/TeamCostPieChart';
+import BillingPivotTable from '../PivotTable/BillingPivotTable';
+import CacheIndicator from '../CacheIndicator';
+import OrganizationSelector, { type SelectedOrganization } from '../OrganizationSelector';
+import ThemeSelector from '../ThemeSelector';
+import { exportToCSV, exportToExcel, exportToPDF } from '../../utils/exportUtils';
+import { getCurrencySymbol } from '../../utils/costCalculations';
+import { useProjectsRealData } from '../../hooks/useProjectsRealData';
+import { useProjects } from '../../hooks/useSonarCloudData';
+import { useBillingOverview } from '../../hooks/useBillingData';
+import { useCostCenters, useCostCenterAssignments, useBillingConfig } from '../../hooks/useBilling';
+
+export default function BillingDashboard() {
+  const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
+  const [selectedOrganization, setSelectedOrganization] = useState<SelectedOrganization | null>(null);
+
+  // Reset selected projects when organization changes
+  useEffect(() => {
+    if (selectedOrganization) {
+      setSelectedProjects([]);
+    }
+  }, [selectedOrganization]);
+
+  // Fetch all projects for organization-level stats
+  // Only fetch if an organization is selected
+  const { data: allProjects } = useProjects({
+    organization: selectedOrganization?.key,
+    ps: 100
+  });
+  const totalProjectCount = allProjects?.paging?.total || 0;
+
+  // Calculate private/public project counts from actual project data
+  const actualPrivateProjectCount = allProjects?.components?.filter(p => p.visibility === 'private').length || 0;
+  const actualPublicProjectCount = allProjects?.components?.filter(p => p.visibility === 'public').length || 0;
+
+  // Fetch billing data (NCLOC distribution + consumption)
+  // NOTE: Only PRIVATE projects count toward billing!
+  // Only fetch if an organization is selected
+  const {
+    consumed,
+    limit,
+    privateProjectCount,
+    publicProjectCount,
+    isLoading: isLoadingBilling,
+  } = useBillingOverview(selectedOrganization ? { key: selectedOrganization.key, uuid: selectedOrganization.uuid } : undefined);
+
+  const { data: costCenters = [] } = useCostCenters();
+  const { data: allAssignments = [] } = useCostCenterAssignments();
+  const { data: billingConfig } = useBillingConfig();
+
+  const projectKeysFromAssignments = useMemo(
+    () => [...new Set((allAssignments.filter((a) => (a.type === 'project' || a.projectKey) && a.projectKey).map((a) => a.projectKey!)))],
+    [allAssignments]
+  );
+
+  // Include all private projects so unassigned LOC counts projects not assigned to any cost center (e.g. 2 of 9 not selected/assigned).
+  const allPrivateProjectKeys = useMemo(
+    () => allProjects?.components?.filter((p) => p.visibility === 'private').map((p) => p.key) ?? [],
+    [allProjects]
+  );
+
+  const projectKeysForData = useMemo(
+    () => [...new Set(allPrivateProjectKeys.length > 0 ? allPrivateProjectKeys : [...selectedProjects, ...projectKeysFromAssignments])],
+    [allPrivateProjectKeys, selectedProjects, projectKeysFromAssignments]
+  );
+
+  // Fetch real data for all private projects (or selected + assigned when org list not yet loaded)
+  const {
+    projects: projectsData,
+    monthlyTrendByProject,
+    isLoading: isLoadingProjectData,
+  } = useProjectsRealData(projectKeysForData);
+
+  // LOC trend by cost center: use monthly carry-forward project LOC, then allocate by CC per month
+  // Use a reserved key for aggregate total so a cost center named "Total" doesn't overwrite it
+  const AGGREGATE_TOTAL_KEY = '__total__';
+  const { realTrendData, trendTeamNames, trendSeriesLabels } = useMemo(() => {
+    const projectOnly = allAssignments.filter((a) => (a.type === 'project' || a.projectKey) && a.projectKey && a.costCenterId);
+    const ccDisplayNames = costCenters.map((cc) => (cc.code ? `${cc.name} (${cc.code})` : cc.name));
+    const data: Array<{ date: string; [key: string]: string | number }> = [];
+
+    monthlyTrendByProject.forEach((month) => {
+      const total = Object.values(month.projectNcloc).reduce((s, v) => s + v, 0);
+      const row: { date: string; [key: string]: string | number } = {
+        date: month.monthLabel,
+        [AGGREGATE_TOTAL_KEY]: total,
+      };
+
+      costCenters.forEach((cc) => {
+        const displayName = cc.code ? `${cc.name} (${cc.code})` : cc.name;
+        let ccLoc = 0;
+        for (const a of projectOnly) {
+          if (a.costCenterId !== cc.id || !a.projectKey) continue;
+          const ncloc = month.projectNcloc[a.projectKey] ?? 0;
+          const pct = Math.min(100, Math.max(0, a.allocationPercentage ?? 0));
+          ccLoc += (ncloc * pct) / 100;
+        }
+        row[displayName] = Math.round(ccLoc);
+      });
+
+      data.push(row);
+    });
+
+    const labels: Record<string, string> = { [AGGREGATE_TOTAL_KEY]: 'Total' };
+    ccDisplayNames.forEach((name) => {
+      labels[name] = name;
+    });
+    return {
+      realTrendData: data,
+      trendTeamNames: [...ccDisplayNames, AGGREGATE_TOTAL_KEY],
+      trendSeriesLabels: labels,
+    };
+  }, [monthlyTrendByProject, costCenters, allAssignments]);
+
+  const costCenterDistribution = useMemo(() => {
+    const projectOnly = allAssignments.filter((a) => (a.type === 'project' || a.projectKey) && a.projectKey && a.costCenterId);
+    const nclocByKey = new Map(projectsData.map((p) => [p.key, p.ncloc]));
+    const byCostCenter = new Map<string, number>();
+    for (const cc of costCenters) {
+      byCostCenter.set(cc.id, 0);
+    }
+    for (const a of projectOnly) {
+      if (!a.projectKey || !a.costCenterId) continue;
+      const ncloc = nclocByKey.get(a.projectKey) ?? 0;
+      const pct = Math.min(100, Math.max(0, a.allocationPercentage ?? 0));
+      byCostCenter.set(a.costCenterId, (byCostCenter.get(a.costCenterId) ?? 0) + (ncloc * pct) / 100);
+    }
+    const totalInScope = projectsData.reduce((s, p) => s + p.ncloc, 0);
+    const allocatedTotal = Array.from(byCostCenter.values()).reduce((s, v) => s + v, 0);
+    // Cap at totalInScope so unassigned is never negative (e.g. when allocations sum to >100% per project)
+    const unallocatedLoc = Math.max(0, totalInScope - allocatedTotal);
+    const segments = costCenters.map((cc) => ({
+      name: cc.code ? `${cc.name} (${cc.code})` : cc.name,
+      value: Math.round(byCostCenter.get(cc.id) ?? 0),
+    }));
+    return {
+      costCenterSegments: segments,
+      unallocatedLoc: Math.round(unallocatedLoc),
+      totalInScope,
+    };
+  }, [costCenters, allAssignments, projectsData]);
+
+  const unusedLoc = limit != null && consumed != null ? Math.max(0, limit - (consumed || 0)) : undefined;
+
+  const billingDetailsData = useMemo(() => {
+    const projectOnly = allAssignments.filter((a) => (a.type === 'project' || a.projectKey) && a.projectKey && a.costCenterId);
+    const nclocByKey = new Map(projectsData.map((p) => [p.key, p.ncloc]));
+    const projectNameByKey = new Map(projectsData.map((p) => [p.key, p.name]));
+    const config = billingConfig ?? { defaultRate: 10, currency: 'USD' };
+    const rows: Array<{
+      costCenterName: string;
+      costCenterCode: string;
+      projectKey: string;
+      projectName: string;
+      allocationPercentage: number;
+      ncloc: number;
+      allocatedLoc: number;
+      cost: number;
+      costContractShare: number;
+    }> = [];
+
+    // Per-project allocated LOC (sum of allocated portions across all cost center assignments)
+    const allocatedByProject = new Map<string, number>();
+    for (const a of projectOnly) {
+      if (!a.projectKey || !a.costCenterId) continue;
+      const ncloc = nclocByKey.get(a.projectKey) ?? 0;
+      const pct = Math.min(100, Math.max(0, a.allocationPercentage ?? 0));
+      const allocatedLoc = (ncloc * pct) / 100;
+      allocatedByProject.set(a.projectKey, (allocatedByProject.get(a.projectKey) ?? 0) + allocatedLoc);
+    }
+
+    for (const a of projectOnly) {
+      if (!a.projectKey || !a.costCenterId) continue;
+      const ncloc = nclocByKey.get(a.projectKey) ?? 0;
+      const pct = Math.min(100, Math.max(0, a.allocationPercentage ?? 0));
+      const allocatedLoc = Math.round((ncloc * pct) / 100);
+      const cc = costCenters.find((c) => c.id === a.costCenterId);
+      rows.push({
+        costCenterName: cc?.name ?? 'Unknown',
+        costCenterCode: cc?.code ?? '',
+        projectKey: a.projectKey,
+        projectName: projectNameByKey.get(a.projectKey) ?? a.projectKey,
+        allocationPercentage: pct,
+        ncloc,
+        allocatedLoc,
+        cost: 0,
+        costContractShare: 0,
+      });
+    }
+
+    // Single "Unassigned" row: sum all LOC not assigned to any cost center (cost to absorb at group level).
+    // Cap allocated per project at ncloc so over-allocations (e.g. 80% + 21%) don't force unassigned to 0.
+    let totalUnassignedLoc = 0;
+    for (const p of projectsData) {
+      const allocatedRaw = allocatedByProject.get(p.key) ?? 0;
+      const allocatedForProject = Math.min(allocatedRaw, p.ncloc);
+      const unassignedLoc = Math.round(Math.max(0, p.ncloc - allocatedForProject));
+      totalUnassignedLoc += unassignedLoc;
+    }
+    if (totalUnassignedLoc > 0) {
+      rows.push({
+        costCenterName: 'Unassigned',
+        costCenterCode: '',
+        projectKey: '__unassigned__',
+        projectName: 'All unassigned',
+        allocationPercentage: 0,
+        ncloc: totalUnassignedLoc,
+        allocatedLoc: 0,
+        cost: 0,
+        costContractShare: 0,
+      });
+    }
+
+    const totalScopeLoc = rows.reduce((s, r) => s + r.allocatedLoc, 0);
+    const contractValue = config.contractValue ?? 0;
+    const planAllowanceLOC = limit != null && limit > 0 ? limit : totalScopeLoc;
+    const totalInScope = totalScopeLoc + totalUnassignedLoc;
+
+    // Rate-based cost: spread contract value over all in-scope LOC (allocated + unassigned) so cost to absorb is visible
+    const ratePerLOC = totalInScope > 0 && contractValue > 0 ? contractValue / totalInScope : 0;
+    for (const r of rows) {
+      const locForCost = r.projectKey === '__unassigned__' ? totalUnassignedLoc : r.allocatedLoc;
+      r.cost = Math.round(locForCost * ratePerLOC * 100) / 100;
+      r.costContractShare = planAllowanceLOC > 0 && contractValue > 0
+        ? Math.round((locForCost * contractValue) / planAllowanceLOC * 100) / 100
+        : 0;
+    }
+
+    // Unused LOC row: bridge so total in the table matches the plan allowance when there is headroom.
+    const unusedAllocatedLOC = planAllowanceLOC > totalInScope
+      ? Math.round(planAllowanceLOC - totalInScope)
+      : 0;
+    if (unusedAllocatedLOC > 0) {
+      rows.push({
+        costCenterName: '—',
+        costCenterCode: '',
+        projectKey: '__unused__',
+        projectName: 'Unused LOC',
+        allocationPercentage: 0,
+        ncloc: unusedAllocatedLOC,
+        allocatedLoc: 0,
+        cost: 0,
+        costContractShare: 0,
+      });
+    }
+
+    const shareBasisLOC = rows.reduce((s, r) => {
+      if (r.projectKey === '__unassigned__') return s + totalUnassignedLoc;
+      if (r.projectKey === '__unused__') return s + unusedAllocatedLOC;
+      return s + r.allocatedLoc;
+    }, 0);
+    const shareRows = rows.map((r) => {
+      const locForShare = r.projectKey === '__unassigned__'
+        ? totalUnassignedLoc
+        : r.projectKey === '__unused__'
+          ? unusedAllocatedLOC
+          : r.allocatedLoc;
+      const exactShare = shareBasisLOC > 0 && contractValue > 0 ? (locForShare * contractValue) / shareBasisLOC : 0;
+      return { ...r, costContractShare: exactShare };
+    });
+    let allocatedShareTotal = 0;
+    for (let i = 0; i < shareRows.length; i++) {
+      if (i < shareRows.length - 1) {
+        shareRows[i].costContractShare = Math.round(shareRows[i].costContractShare * 100) / 100;
+        allocatedShareTotal += shareRows[i].costContractShare;
+      } else if (shareRows.length > 0) {
+        shareRows[i].costContractShare = Math.round((contractValue - allocatedShareTotal) * 100) / 100;
+      }
+    }
+    rows.splice(0, rows.length, ...shareRows);
+    return { rows, totalScopeLoc };
+  }, [costCenters, allAssignments, projectsData, billingConfig, limit]);
+
+  const handleLogout = async () => {
+    if (confirm('Are you sure you want to log out?')) {
+      await clearAuth();
+      window.location.reload();
+    }
+  };
+
+  // Trend chart series: Total + cost center names (from monthly carry-forward LOC)
+
+  const billingRows = billingDetailsData.rows;
+  const billingTotals = useMemo(() => {
+    return {
+      allocatedLoc: billingRows.reduce((s, r) => s + r.allocatedLoc, 0),
+      cost: billingRows.reduce((s, r) => s + r.cost, 0),
+      costContractShare: billingRows.reduce((s, r) => s + r.costContractShare, 0),
+    };
+  }, [billingRows]);
+
+  const chartSegmentData = useMemo(() => {
+    const costByName = new Map<string, number>();
+    const licenseShareByName = new Map<string, number>();
+    for (const r of billingRows) {
+      if (r.projectKey === '__unassigned__' || r.projectKey === '__unused__') continue;
+      const name = r.costCenterCode ? `${r.costCenterName} (${r.costCenterCode})` : r.costCenterName;
+      costByName.set(name, (costByName.get(name) ?? 0) + r.cost);
+      licenseShareByName.set(name, (licenseShareByName.get(name) ?? 0) + r.costContractShare);
+    }
+    const segments = costCenterDistribution.costCenterSegments.map((seg) => ({
+      ...seg,
+      cost: costByName.get(seg.name) ?? 0,
+      licenseShare: licenseShareByName.get(seg.name) ?? 0,
+    }));
+    const unassignedRow = billingRows.find((r) => r.projectKey === '__unassigned__');
+    const unassignedCost = unassignedRow?.cost ?? 0;
+    const unassignedLicenseShare = unassignedRow?.costContractShare ?? 0;
+    const unusedLicenseShare = billingRows.find((r) => r.projectKey === '__unused__')?.costContractShare ?? 0;
+    return { segments, unassignedCost, unassignedLicenseShare, unusedLicenseShare };
+  }, [billingRows, costCenterDistribution.costCenterSegments]);
+
+  const handleExportCSV = () => {
+    if (!billingRows || billingRows.length === 0) return;
+    const curr = billingConfig?.currency ?? 'USD';
+    const sym = getCurrencySymbol(curr);
+    const exportData = billingRows.map((row) => ({
+      'Cost center': row.costCenterCode ? `${row.costCenterName} (${row.costCenterCode})` : row.costCenterName,
+      Project: row.projectName,
+      'Allocation %': row.allocationPercentage,
+      'Total LOC': row.ncloc,
+      'Allocated LOC': row.allocatedLoc,
+      [`Cost rate-based (${sym})`]: row.cost,
+      [`License share (${sym})`]: row.costContractShare,
+    }));
+    exportData.push({
+      'Cost center': 'Total',
+      Project: 'All projects',
+      'Allocation %': '',
+      'Total LOC': selectedLOC,
+      'Allocated LOC': billingTotals.allocatedLoc,
+      [`Cost rate-based (${sym})`]: billingTotals.cost,
+      [`License share (${sym})`]: billingTotals.costContractShare,
+    });
+    exportToCSV(exportData, `billing-details-${new Date().toISOString().split('T')[0]}.csv`);
+  };
+
+  const handleExportExcel = () => {
+    if (!billingRows || billingRows.length === 0) return;
+    const curr = billingConfig?.currency ?? 'USD';
+    const sym = getCurrencySymbol(curr);
+    const exportData = billingRows.map((row) => ({
+      'Cost center': row.costCenterCode ? `${row.costCenterName} (${row.costCenterCode})` : row.costCenterName,
+      Project: row.projectName,
+      'Allocation %': row.allocationPercentage,
+      'Total LOC': row.ncloc,
+      'Allocated LOC': row.allocatedLoc,
+      [`Cost rate-based (${sym})`]: row.cost,
+      [`License share (${sym})`]: row.costContractShare,
+    }));
+    exportData.push({
+      'Cost center': 'Total',
+      Project: 'All projects',
+      'Allocation %': '',
+      'Total LOC': selectedLOC,
+      'Allocated LOC': billingTotals.allocatedLoc,
+      [`Cost rate-based (${sym})`]: billingTotals.cost,
+      [`License share (${sym})`]: billingTotals.costContractShare,
+    });
+    exportToExcel(exportData, `billing-details-${new Date().toISOString().split('T')[0]}.xlsx`, 'Billing Details');
+  };
+
+  const handleExportPDF = () => {
+    if (!billingRows || billingRows.length === 0) return;
+    const curr = billingConfig?.currency ?? 'USD';
+    const sym = getCurrencySymbol(curr);
+    const exportData = billingRows.map((row) => ({
+      'Cost center': row.costCenterCode ? `${row.costCenterName} (${row.costCenterCode})` : row.costCenterName,
+      Project: row.projectName,
+      'Allocation %': row.allocationPercentage,
+      'Total LOC': row.ncloc,
+      'Allocated LOC': row.allocatedLoc,
+      [`Cost rate-based (${sym})`]: row.cost,
+      [`License share (${sym})`]: row.costContractShare,
+    }));
+    exportData.push({
+      'Cost center': 'Total',
+      Project: 'All projects',
+      'Allocation %': '',
+      'Total LOC': selectedLOC,
+      'Allocated LOC': billingTotals.allocatedLoc,
+      [`Cost rate-based (${sym})`]: billingTotals.cost,
+      [`License share (${sym})`]: billingTotals.costContractShare,
+    });
+    exportToPDF(exportData, `billing-report-${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
+  // Calculate stats for selected projects (exclude 0 LOC = no scan)
+  const selectedLOC = projectsData.reduce((sum, p) => sum + p.ncloc, 0);
+  const selectedCount = selectedProjects.length;
+  const projectsWithLoc = useMemo(
+    () => projectsData.filter((p) => p.ncloc > 0),
+    [projectsData]
+  );
+  const { medianLOCPerProject, minLoc, maxLoc } = useMemo(() => {
+    if (projectsWithLoc.length === 0) return { medianLOCPerProject: null, minLoc: null, maxLoc: null };
+    const sorted = [...projectsWithLoc].map((p) => p.ncloc).sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    const median = sorted.length % 2 !== 0
+      ? sorted[mid]
+      : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
+    return {
+      medianLOCPerProject: median,
+      minLoc: sorted[0],
+      maxLoc: sorted.at(-1) ?? null,
+    };
+  }, [projectsWithLoc]);
+
+  // ONLY use data from billing API - no fallbacks to configured limits
+  // consumed = total LOC used across all private projects in the organization
+  // limit = total LOC available in the organization's plan (from consumption API)
+  const actualConsumed = consumed || 0;
+  const actualLimit = limit || 0;
+  const actualUsagePercent = actualLimit > 0 ? (actualConsumed / actualLimit) * 100 : 0;
+
+  return (
+    <div className="min-h-screen bg-sonar-background">
+      <header className="bg-white dark:bg-slate-800 shadow-md border-b-2 border-sonar-blue/10 dark:border-slate-700">
+        <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center mb-4">
+            <h1 className="text-3xl font-bold text-sonar-purple dark:text-white">
+              SonarCloud Billing Dashboard
+            </h1>
+            <div className="flex items-center gap-3">
+              <ThemeSelector />
+              <button
+                onClick={handleLogout}
+                className="btn-sonar-danger px-4 py-2 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg font-body"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+          <OrganizationSelector onOrganizationChange={setSelectedOrganization} />
+        </div>
+      </header>
+
+      <CacheIndicator />
+
+      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div className="px-4 py-6 sm:px-0 space-y-6">
+              {/* Always-Visible Billing Metrics */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {/* Projects Assigned - donut with count in center */}
+                    <div className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-xl border-2 border-gray-100 dark:border-gray-700 p-6 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-xs font-bold text-sonar-purple dark:text-white font-body uppercase tracking-wider">
+                          Projects Assigned
+                        </h3>
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center shadow-lg">
+                          <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        {actualPrivateProjectCount > 0 ? (() => {
+                          const assignedPct = selectedCount / actualPrivateProjectCount;
+                          const deg = Math.min(1, assignedPct) * 360;
+                          return (
+                            <div
+                              className="relative flex-shrink-0 w-20 h-20 rounded-full"
+                              title={`${selectedCount} of ${actualPrivateProjectCount} private projects assigned`}
+                              style={{
+                                background: `conic-gradient(#4f46e5 0deg ${deg}deg, #94a3b8 ${deg}deg 360deg)`,
+                              }}
+                            >
+                              <div className="absolute inset-[10px] rounded-full bg-white dark:bg-slate-800 flex items-center justify-center">
+                                <span className="text-2xl font-black text-gray-900 dark:text-white tabular-nums">{selectedCount}</span>
+                              </div>
+                            </div>
+                          );
+                        })() : (
+                        <div className="relative flex-shrink-0 w-20 h-20 rounded-full bg-gray-200 dark:bg-slate-700 flex items-center justify-center">
+                            <span className="text-2xl font-black text-gray-500 dark:text-slate-200 tabular-nums">—</span>
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xl font-bold text-gray-900 dark:text-slate-100 tabular-nums">
+                            {selectedCount}<span className="text-lg text-gray-600 dark:text-slate-300 font-semibold">/{actualPrivateProjectCount}</span>
+                          </p>
+                          <p className="text-xs text-gray-600 dark:text-slate-300 font-medium">
+                            {actualPrivateProjectCount > 0 ? ((selectedCount / actualPrivateProjectCount) * 100).toFixed(0) : 0}% of private projects
+                          </p>
+                          <p className="text-xs text-gray-600 dark:text-slate-400 mt-1">
+                            {totalProjectCount} total ({actualPublicProjectCount} public)
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* LOC attributed to cost centers - donut with value in center */}
+                    <div className="bg-gradient-to-br from-white to-blue-50 dark:from-gray-800 dark:to-blue-950 rounded-2xl shadow-xl border-2 border-blue-100 dark:border-blue-900 p-6 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-xs font-bold text-sonar-purple dark:text-white font-body uppercase tracking-wider">
+                          LOC attributed to cost centers
+                        </h3>
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-sonar-blue to-sonar-blue-secondary flex items-center justify-center shadow-lg">
+                          <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                          </svg>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        {(selectedCount > 0 || projectKeysFromAssignments.length > 0) ? (() => {
+                          const total = billingTotals.allocatedLoc + costCenterDistribution.unallocatedLoc;
+                          if (total <= 0) {
+                            return (
+                              <div className="relative flex-shrink-0 w-20 h-20 rounded-full bg-gray-200 dark:bg-slate-700 flex items-center justify-center">
+                                <span className="text-sm font-black text-sonar-blue dark:text-sky-300 tabular-nums">—</span>
+                              </div>
+                            );
+                          }
+                          const allocatedPct = billingTotals.allocatedLoc / total;
+                          const deg = allocatedPct * 360;
+                          return (
+                            <div
+                              className="relative flex-shrink-0 w-20 h-20 rounded-full"
+                              title={`Allocated: ${billingTotals.allocatedLoc.toLocaleString()} · Unassigned: ${costCenterDistribution.unallocatedLoc.toLocaleString()}`}
+                              style={{
+                                background: `conic-gradient(#3b82f6 0deg ${deg}deg, #94a3b8 ${deg}deg 360deg)`,
+                              }}
+                            >
+                              <div className="absolute inset-[10px] rounded-full bg-white dark:bg-slate-900 flex items-center justify-center">
+                                <span className="text-sm font-black text-sonar-blue dark:text-sky-300 tabular-nums leading-tight text-center px-0.5 truncate max-w-full">
+                                  {billingTotals.allocatedLoc.toLocaleString()}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })() : (
+                          <div className="relative flex-shrink-0 w-20 h-20 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center">
+                            <span className="text-lg font-black text-gray-500 dark:text-slate-300 tabular-nums">—</span>
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-gray-600 dark:text-slate-300 font-medium">
+                            LOC attributed to cost centers
+                          </p>
+                          {(selectedCount > 0 || projectKeysFromAssignments.length > 0) && (
+                            <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
+                              of {selectedLOC.toLocaleString()} total LOC in scope
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Plan Usage - headroom = allowance − consumed */}
+                    <div className="bg-gradient-to-br from-white to-emerald-50 dark:from-gray-800 dark:to-emerald-950 rounded-2xl shadow-xl border-2 border-emerald-100 dark:border-emerald-900 p-6 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
+                        <div className="flex items-center justify-between mb-3">
+<h3 className="text-xs font-bold text-sonar-purple dark:text-white font-body uppercase tracking-wider">
+                          Plan Usage {limit && limit > 0 && <span className="text-green-600">●</span>}
+                          </h3>
+                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg">
+                            {isLoadingBilling ? (
+                              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                            ) : (
+                              <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            )}
+                          </div>
+                        </div>
+                        <div className="mb-2">
+                          <p className="text-4xl font-black text-emerald-600 dark:text-emerald-400 tabular-nums">
+                            {isLoadingBilling ? (
+                                <span className="text-2xl text-slate-200">...</span>
+                            ) : (
+                              <>{actualUsagePercent.toFixed(1)}<span className="text-2xl">%</span></>
+                            )}
+                          </p>
+                        </div>
+                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mb-2">
+                          <div
+                            className={`h-2 rounded-full transition-all duration-500 ${
+                              isLoadingBilling ? 'bg-blue-500' : actualUsagePercent > 90 ? 'bg-red-500' : actualUsagePercent > 75 ? 'bg-amber-500' : 'bg-emerald-500'
+                            }`}
+                            style={{ width: `${isLoadingBilling ? 50 : Math.min(actualUsagePercent, 100)}%` }}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-xs text-gray-600 dark:text-slate-300 font-medium">
+                            {isLoadingBilling ? (
+                              `Loading billing data...`
+                            ) : (
+                              <>
+                                <span className="font-semibold text-gray-700 dark:text-slate-100">{actualConsumed.toLocaleString()} LOC used</span>
+                                <span className="mx-1">of</span>
+                                <span className="font-semibold text-emerald-600 dark:text-emerald-300">{actualLimit.toLocaleString()} LOC available</span>
+                              </>
+                            )}
+                          </p>
+                          {!isLoadingBilling && limit && limit > 0 && (
+                            <p className="text-xs text-green-600 dark:text-green-300 font-semibold">
+                              ✓ Live data from Billing API
+                            </p>
+                          )}
+                          {!isLoadingBilling && !limit && (
+                            <p className="text-xs text-red-500 dark:text-red-300 font-semibold">
+                              ⚠ No billing data available from API
+                            </p>
+                          )}
+                          {!isLoadingBilling && privateProjectCount > 0 && (
+                            <p className="text-xs text-gray-600 dark:text-slate-400">
+                              {privateProjectCount} private project{privateProjectCount !== 1 ? 's' : ''} • {publicProjectCount} public
+                            </p>
+                          )}
+                          {!isLoadingBilling && unusedLoc != null && (
+                            <p className="text-xs text-gray-500 dark:text-slate-400">
+                              FYI — Headroom: {unusedLoc.toLocaleString()} LOC
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                    {/* Median LOC Per Project */}
+                    <div className="bg-gradient-to-br from-white to-purple-50 dark:from-gray-800 dark:to-purple-950 rounded-2xl shadow-xl border-2 border-purple-100 dark:border-purple-900 p-6 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-xs font-bold text-sonar-purple dark:text-white font-body uppercase tracking-wider">
+                          Median LOC Per Project
+                        </h3>
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-lg">
+                          <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                          </svg>
+                        </div>
+                      </div>
+                      <p className="text-4xl font-black text-purple-600 dark:text-purple-300 tabular-nums mb-1">
+                        {medianLOCPerProject != null ? medianLOCPerProject.toLocaleString() : '—'}
+                      </p>
+                      <p className="text-xs text-gray-600 dark:text-slate-300 font-medium">
+                        Typical codebase size (scanned projects only)
+                      </p>
+                      {minLoc != null && maxLoc != null && (
+                        <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
+                          FYI — Largest: {maxLoc.toLocaleString()} LOC · Smallest: {minLoc.toLocaleString()} LOC
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <CostCenters
+                    key={selectedOrganization?.key ?? 'no-org'}
+                    organization={selectedOrganization?.key}
+                    onProjectsSelected={setSelectedProjects}
+                  />
+
+                  {(selectedProjects.length > 0 || projectKeysFromAssignments.length > 0) && (
+                    <>
+                  {isLoadingProjectData && projectKeysForData.length > 0 && (
+                    <div className="bg-sonar-blue/10 border border-sonar-blue/20 rounded-lg p-4 text-center">
+                      <div className="flex items-center justify-center gap-3">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-sonar-blue"></div>
+                        <p className="text-sonar-purple dark:text-white font-body font-medium">
+                          Loading detailed project data...
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {(!isLoadingProjectData || projectKeysForData.length === 0) && (
+                    <>
+                      {(selectedProjects.length > 0 || projectKeysFromAssignments.length > 0) && !isLoadingProjectData && (
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                          <LOCTrendChart
+                            data={realTrendData}
+                            teamNames={trendTeamNames}
+                            seriesLabels={trendSeriesLabels}
+                            chartId={selectedOrganization?.key}
+                            aggregateTotalKey={AGGREGATE_TOTAL_KEY}
+                          />
+                          <TeamCostPieChart
+                            costCenterSegments={chartSegmentData.segments}
+                            unallocatedLoc={costCenterDistribution.unallocatedLoc}
+                            unusedLoc={unusedLoc}
+                            unassignedCost={chartSegmentData.unassignedCost}
+                            unassignedLicenseShare={chartSegmentData.unassignedLicenseShare}
+                            unusedLicenseShare={chartSegmentData.unusedLicenseShare}
+                            currency={billingConfig?.currency ?? 'USD'}
+                          />
+                        </div>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+
+              {/* Billing Details table always visible so the grid and headers render */}
+                      <BillingPivotTable
+                          data={billingRows}
+                          currency={billingConfig?.currency ?? 'USD'}
+                          totals={billingTotals}
+                        />
+
+              {selectedProjects.length === 0 && projectKeysFromAssignments.length === 0 && (
+                <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-12 text-center border-t-4 border-sonar-blue">
+                  <div className="text-gray-600 dark:text-slate-300 mb-4">
+                    <svg className="mx-auto h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-bold text-sonar-purple dark:text-white mb-2">
+                    No Projects Assigned
+                  </h3>
+                  <p className="text-gray-600 dark:text-slate-300 font-body">
+                    Assign one or more projects to cost centers in the section above to view billing analytics
+                  </p>
+                </div>
+              )}
+
+          {/* Config: cost calculator */}
+          <div className="space-y-6">
+            <CostCalculator planAllowanceLOC={limit} />
+          </div>
+
+          {/* Reports: export actions */}
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-6 border-t-4 border-sonar-blue">
+            <h2 className="text-2xl font-bold mb-4 text-sonar-purple dark:text-white">Billing Reports</h2>
+            <p className="text-gray-600 dark:text-slate-300 font-body">
+              Export and download billing reports for selected period and teams.
+            </p>
+            <div className="mt-6 flex gap-4 flex-wrap">
+              <button
+                onClick={handleExportExcel}
+                className="btn-sonar-primary px-4 py-2 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg font-body"
+              >
+                Export to Excel
+              </button>
+              <button
+                onClick={handleExportCSV}
+                className="btn-sonar-primary px-4 py-2 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg font-body"
+              >
+                Export to CSV
+              </button>
+              <button
+                onClick={handleExportPDF}
+                className="btn-sonar-accent px-4 py-2 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg font-body"
+              >
+                Generate PDF Report
+              </button>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}

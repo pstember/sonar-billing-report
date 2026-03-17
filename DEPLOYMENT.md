@@ -1,0 +1,259 @@
+# SonarCloud Billing Report - Deployment Guide
+
+## Quick Start
+
+### Development
+```bash
+npm install
+npm run dev
+```
+
+Visit http://localhost:5173
+
+### Production Build
+```bash
+npm run build
+```
+
+The build output will be in the `dist/` directory.
+
+## Deployment Options
+
+### Option 1: Netlify
+
+1. **Via Netlify CLI**
+```bash
+npm install -g netlify-cli
+npm run build
+netlify deploy --prod --dir=dist
+```
+
+2. **Via Git Integration**
+- Push code to GitHub/GitLab/Bitbucket
+- Connect repository to Netlify
+- Build settings:
+  - Build command: `npm run build`
+  - Publish directory: `dist`
+  - Node version: 22
+
+### Option 2: Vercel
+
+1. **Via Vercel CLI**
+```bash
+npm install -g vercel
+npm run build
+vercel --prod
+```
+
+2. **Via Git Integration**
+- Push code to GitHub
+- Import project in Vercel
+- Auto-detected settings work out of the box
+
+### Option 3: GitHub Pages
+
+1. Add to `package.json`:
+```json
+{
+  "homepage": "https://yourusername.github.io/sonar-billing-report"
+}
+```
+
+2. Install gh-pages:
+```bash
+npm install --save-dev gh-pages
+```
+
+3. Add deploy script:
+```json
+{
+  "scripts": {
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist"
+  }
+}
+```
+
+4. Deploy:
+```bash
+npm run deploy
+```
+
+### Option 4: AWS S3 + CloudFront
+
+1. **Build the app**
+```bash
+npm run build
+```
+
+2. **Upload to S3**
+```bash
+aws s3 sync dist/ s3://your-bucket-name --delete
+```
+
+3. **Configure bucket for static hosting**
+- Enable static website hosting
+- Set index document: `index.html`
+- Set error document: `index.html` (for SPA routing)
+
+4. **Create CloudFront distribution** (optional, for HTTPS)
+- Origin: S3 bucket
+- Custom error response: 404 → /index.html (200)
+
+### Option 5: Docker
+
+1. **Create Dockerfile**:
+```dockerfile
+FROM node:22-alpine as build
+
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+FROM nginx:alpine
+COPY --from=build /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
+```
+
+2. **Create nginx.conf**:
+```nginx
+server {
+    listen 80;
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+```
+
+3. **Build and run**:
+```bash
+docker build -t sonar-billing-report .
+docker run -p 8080:80 sonar-billing-report
+```
+
+## Environment Configuration
+
+### CORS Proxy (if needed)
+
+If SonarCloud blocks CORS requests, deploy a simple proxy:
+
+**Cloudflare Worker:**
+```javascript
+export default {
+  async fetch(request) {
+    const url = new URL(request.url);
+    const sonarUrl = 'https://sonarcloud.io' + url.pathname + url.search;
+
+    const response = await fetch(sonarUrl, {
+      headers: request.headers,
+      method: request.method,
+      body: request.body
+    });
+
+    const newResponse = new Response(response.body, response);
+    newResponse.headers.set('Access-Control-Allow-Origin', '*');
+    return newResponse;
+  }
+}
+```
+
+Update `src/services/sonarcloud.ts` baseUrl to use proxy:
+```typescript
+const DEFAULT_BASE_URL = 'https://your-worker.workers.dev';
+```
+
+## Security Considerations
+
+1. **Token Storage**
+   - Tokens are stored in IndexedDB (client-side only)
+   - Never expose tokens in URLs or logs
+   - Tokens never sent to any server except SonarCloud
+
+2. **HTTPS**
+   - Always deploy with HTTPS enabled
+   - Use Netlify/Vercel for automatic HTTPS
+   - For custom domains, configure SSL certificates
+
+3. **CSP Headers** (optional)
+   Add to `netlify.toml` or server config:
+   ```toml
+   [[headers]]
+     for = "/*"
+     [headers.values]
+       Content-Security-Policy = "default-src 'self'; connect-src 'self' https://sonarcloud.io; style-src 'self' 'unsafe-inline';"
+   ```
+
+## Performance Optimization
+
+1. **Build Optimizations** (already configured in Vite)
+   - Code splitting
+   - Tree shaking
+   - Minification
+   - Gzip compression
+
+2. **CDN Configuration**
+   - Cache static assets
+   - Set proper cache headers
+   - Use CDN for global distribution
+
+3. **Lazy Loading**
+   - Charts load on-demand
+   - AG-Grid loads when pivot table is viewed
+
+## Monitoring
+
+### Error Tracking
+Add Sentry (optional):
+```bash
+npm install @sentry/react
+```
+
+### Analytics
+Add Google Analytics or Plausible (optional)
+
+## Backup & Data
+
+- All data stored in browser IndexedDB
+- Export tag mappings regularly (CSV backup)
+- No server-side data storage needed
+
+## Troubleshooting
+
+### Build Fails
+- Ensure Node.js v22+ is installed
+- Clear node_modules: `rm -rf node_modules && npm install`
+- Clear Vite cache: `rm -rf dist`
+
+### CORS Errors
+- Deploy CORS proxy (see above)
+- Update baseUrl in sonarcloud service
+
+### Slow Loading
+- Check SonarCloud API rate limits
+- Reduce number of projects fetched
+- Increase cache TTL
+
+## Update Strategy
+
+1. Pull latest code
+2. Run `npm install` to update dependencies
+3. Test locally with `npm run dev`
+4. Build and deploy: `npm run build && [deploy command]`
+
+## Support
+
+For issues, check:
+- Browser console for errors
+- Network tab for API failures
+- IndexedDB for stored data
+
+Built with Claude Code
