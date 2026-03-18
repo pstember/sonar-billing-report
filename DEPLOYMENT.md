@@ -120,46 +120,6 @@ aws s3 sync dist/ s3://your-bucket-name --delete
 - Origin: S3 bucket
 - Custom error response: 404 → /index.html (200)
 
-### Option 5: Docker
-
-1. **Create Dockerfile**:
-```dockerfile
-FROM node:22-alpine as build
-
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
-
-FROM nginx:alpine
-COPY --from=build /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
-```
-
-2. **Create nginx.conf**:
-```nginx
-server {
-    listen 80;
-    server_name _;
-
-    root /usr/share/nginx/html;
-    index index.html;
-
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-}
-```
-
-3. **Build and run**:
-```bash
-docker build -t sonar-billing-report .
-docker run -p 8080:80 sonar-billing-report
-```
-
 ## Environment Configuration
 
 ### CORS Proxy (if needed)

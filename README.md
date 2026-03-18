@@ -59,14 +59,13 @@ npm run package
 
 This creates platform-specific executables (macOS, Linux, Windows) in the `./binaries/` folder. **See [BUILD.md](./BUILD.md) for complete instructions.**
 
-## 🐳 Deployment
+## 🚀 Deployment
 
 Multiple deployment options:
 
 1. **Standalone Executable** - Single file, no dependencies (see [BUILD.md](./BUILD.md))
 2. **Node.js Server** - Standard Node.js deployment
-3. **Docker Container** - See [DEPLOYMENT.md](./DEPLOYMENT.md)
-4. **Cloud Platforms** - Deploy to Heroku, Vercel, etc.
+3. **Cloud Platforms** - Deploy to Netlify, Vercel, etc.
 
 ## 🔒 Security
 
