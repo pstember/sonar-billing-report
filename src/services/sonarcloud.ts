@@ -185,20 +185,15 @@ class SonarCloudService {
   }
 
   /**
-   * Get all organizations in an enterprise with their UUIDs
-   * This is the KEY endpoint - gives us organization UUIDs for billing API
+   * Get all organizations in an enterprise with their UUIDs.
+   * Uses enterpriseId (UUID from enterprises/enterprises), not enterpriseKey.
    */
-  async getEnterpriseOrganizations(enterpriseKey?: string): Promise<EnterpriseOrganization[]> {
-    const entKey = enterpriseKey || this.config.enterpriseKey;
+  async getEnterpriseOrganizations(enterpriseId: string): Promise<EnterpriseOrganization[]> {
     const searchParams = new URLSearchParams();
+    searchParams.append('enterpriseId', enterpriseId);
 
-    if (entKey) {
-      searchParams.append('enterpriseKey', entKey);
-    }
-
-    // This endpoint is on api.sonarcloud.io (not sonarcloud.io)
     return this.billingRequest<EnterpriseOrganization[]>(
-      `/enterprises/enterprise-organizations${searchParams.toString() ? '?' + searchParams.toString() : ''}`,
+      `/enterprises/enterprise-organizations?${searchParams.toString()}`,
       {},
       true // Requires Bearer token
     );

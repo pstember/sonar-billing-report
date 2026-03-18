@@ -5,7 +5,7 @@
  */
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { useProjects } from '../../hooks/useSonarCloudData';
+import { useProjects, type ProjectWithOrganization } from '../../hooks/useSonarCloudData';
 import { useQueries } from '@tanstack/react-query';
 import SonarCloudService from '../../services/sonarcloud';
 import { getAuthConfig } from '../../services/db';
@@ -31,6 +31,8 @@ interface ProjectListProps {
   ) => void | Promise<void>;
   /** Optional: show success message after a bulk action (e.g. toast). */
   readonly onBulkActionSuccess?: (message: string) => void;
+  /** When provided (multi-org), use this list instead of useProjects(organization). Organization column is shown. */
+  readonly projectsWithOrg?: ProjectWithOrganization[];
 }
 
 export default function ProjectList({
@@ -44,11 +46,15 @@ export default function ProjectList({
   onClearProjectAssignment,
   onBulkAssign,
   onBulkActionSuccess,
+  projectsWithOrg,
 }: ProjectListProps) {
-  const { data: projectsData, isLoading: projectsLoading } = useProjects({
-    organization: organization || undefined,
-    ps: 100
+  const { data: projectsDataFromApi, isLoading: projectsLoadingFromApi } = useProjects({
+    organization: projectsWithOrg == null ? organization || undefined : undefined,
+    ps: 100,
   });
+  const projectsFromApi = projectsDataFromApi?.components ?? [];
+  const projects = projectsWithOrg ?? projectsFromApi;
+  const projectsLoading = projectsWithOrg != null ? false : projectsLoadingFromApi;
   const isAssignmentMode = Boolean(onSaveProjectAssignment != null);
   const [internalSelected, setInternalSelected] = useState<Set<string>>(new Set());
   const selectedProjects = controlledSelection !== undefined && controlledSelection !== null
@@ -78,7 +84,6 @@ export default function ProjectList({
   const [bulkReplaceExisting, setBulkReplaceExisting] = useState(true);
   const [bulkInProgress, setBulkInProgress] = useState(false);
 
-  const projects = projectsData?.components || [];
 
   // Derive available tags from private projects only
   // This ensures we only show tags that are actually present on private projects
@@ -522,7 +527,7 @@ export default function ProjectList({
           placeholder="Search projects..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-sonar-blue focus:border-sonar-blue font-body transition-all"
+          className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-slate-100 placeholder-gray-500 dark:placeholder-slate-400 focus:ring-2 focus:ring-sonar-blue focus:border-sonar-blue font-body transition-all"
         />
       </div>
 
@@ -603,6 +608,9 @@ export default function ProjectList({
             <table className="w-full text-sm">
               <thead className="bg-gray-100 dark:bg-gray-700 sticky top-0">
                 <tr>
+                  {projectsWithOrg != null && (
+                    <th className="px-3 py-2 text-left text-gray-700 dark:text-slate-200">Organization</th>
+                  )}
                   <th
                     className="px-3 py-2 text-left text-gray-700 dark:text-slate-200 cursor-pointer select-none hover:bg-gray-200 dark:hover:bg-slate-600"
                     onClick={() => handleSort('project')}
@@ -645,6 +653,11 @@ export default function ProjectList({
                       }`}
                       role={hasAllocationError ? 'alert' : undefined}
                     >
+                      {projectsWithOrg != null && (
+                      <td className="px-3 py-2 text-gray-700 dark:text-slate-200">
+                        {(project as ProjectWithOrganization).organizationName ?? '—'}
+                      </td>
+                    )}
                       <td className="px-3 py-2">
                         <div className="font-semibold text-sonar-purple dark:text-white truncate max-w-[200px]" title={project.name}>{project.name}</div>
                         <div className="text-xs text-gray-600 dark:text-slate-300 font-mono truncate max-w-[200px]" title={project.key}>{project.key}</div>

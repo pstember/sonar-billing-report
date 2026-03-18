@@ -11,7 +11,8 @@
     "preview": "vite preview",
     "server": "node server.js",
     "start": "npm run build && npm run server",
-    "package": "npm run build && pkg server.js --targets node22-macos-arm64,node22-linux-x64,node22-win-x64 --output-path ./binaries"
+    "package": "npm run build && pkg server.js --targets node22-macos-arm64,node22-linux-x64,node22-win-x64 --output-path ./binaries",
+    "check-docs": "node scripts/check-doc-consistency.js"
   },
   "bin": {
     "sonar-billing": "./server.js"

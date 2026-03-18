@@ -28,12 +28,12 @@ Attempting to exceed this limit results in:
 
 All paginated endpoints have this limit:
 
-- `/api/projects/search`
+- `/api/components/search_projects`
 - `/api/project_tags/search`
 - `/api/measures/search_history`
 - `/api/components/search`
 - `/api/organizations/search`
-- And more...
+- And more. See `src/constants/api.ts` and usage in code for the full list.
 
 ---
 
@@ -438,7 +438,6 @@ function ProjectTagsSelector() {
 
 - **Constants File**: [src/constants/api.ts](./src/constants/api.ts)
 - **SonarCloud API Docs**: https://docs.sonarcloud.io/
-- **API Fix Summary**: [API_FIX_SUMMARY.md](./API_FIX_SUMMARY.md)
 
 ---
 

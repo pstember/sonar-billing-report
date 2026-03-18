@@ -14,7 +14,7 @@ import {
   useSaveCostCenterAssignment,
   useDeleteCostCenterAssignment,
 } from '../../hooks/useBilling';
-import { useProjects } from '../../hooks/useSonarCloudData';
+import { useProjects, type ProjectWithOrganization } from '../../hooks/useSonarCloudData';
 import { useProjectsRealData } from '../../hooks/useProjectsRealData';
 import { getTagMappings, migrateTagMappingsToCostCenters, getAuthConfig } from '../../services/db';
 import SonarCloudService from '../../services/sonarcloud';
@@ -24,9 +24,11 @@ import type { CostCenter } from '../../types/billing';
 interface CostCentersProps {
   readonly organization?: string;
   readonly onProjectsSelected?: (projectKeys: string[]) => void;
+  /** When provided (multi-org), use this list instead of useProjects(organization). Organization column is shown. */
+  readonly projectsWithOrg?: ProjectWithOrganization[];
 }
 
-export default function CostCenters({ organization, onProjectsSelected }: Readonly<CostCentersProps>) {
+export default function CostCenters({ organization, onProjectsSelected, projectsWithOrg }: Readonly<CostCentersProps>) {
   const queryClient = useQueryClient();
   const migrationDone = useRef(false);
 
@@ -66,8 +68,11 @@ export default function CostCenters({ organization, onProjectsSelected }: Readon
   const saveAssignment = useSaveCostCenterAssignment();
   const deleteAssignment = useDeleteCostCenterAssignment();
 
-  const { data: projectsData } = useProjects({ organization: organization || undefined, ps: 100 });
-  const projects = projectsData?.components ?? [];
+  const { data: projectsDataFromApi } = useProjects({
+    organization: projectsWithOrg == null ? organization || undefined : undefined,
+    ps: 100,
+  });
+  const projects = projectsWithOrg ?? projectsDataFromApi?.components ?? [];
 
   const privateProjects = useMemo(
     () => projects.filter((p) => p.visibility === 'private'),
@@ -297,6 +302,7 @@ export default function CostCenters({ organization, onProjectsSelected }: Readon
         )}
         <ProjectList
           organization={organization}
+          projectsWithOrg={projectsWithOrg}
           onProjectsSelected={() => {}}
           selectedProjectKeys={selectedProjectKeys}
           costCenters={costCenters}

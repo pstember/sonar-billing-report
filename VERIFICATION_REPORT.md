@@ -35,14 +35,7 @@ Success Rate: 100.0%
 🎉 All tests passed!
 ```
 
-**Tested Endpoints:**
-1. ✅ `/organizations/search?member=true` - Organizations
-2. ✅ `/projects/search` - Projects
-3. ✅ `/project_tags/search` - Project Tags
-4. ✅ `/components/search` - Portfolios
-5. ✅ `/measures/component` - Component Measures
-6. ✅ `/measures/search_history` - Component History
-7. ✅ `/measures/component_tree` - Component Tree
+**What this script tests:** `test-api.js` exercises 7 sonarcloud.io/api endpoints (organizations, projects/search, project_tags, components/search, measures/component, search_history, component_tree). The app also uses `components/search_projects` for the project list and billing/organization/enterprise APIs on api.sonarcloud.io. For the full set of endpoints the app calls, see `src/services/sonarcloud.ts`.
 
 ### 2. End-to-End Server Tests (`test-e2e.js`)
 
@@ -193,24 +186,11 @@ node test-e2e.js
 
 ---
 
-## Documentation Created
+## Related Documentation
 
-1. **`API_FIX_SUMMARY.md`**
-   - Detailed explanation of the issue
-   - Fix implementation
-   - Validation results
-   - Next steps
-
-2. **`QUICK_START.md`**
-   - Installation instructions
-   - Usage guide
-   - Available scripts
-   - Troubleshooting tips
-
-3. **`VERIFICATION_REPORT.md`** (this file)
-   - Complete test results
-   - Code changes
-   - Verification steps
+- **`QUICK_START.md`** – Installation, usage, scripts, troubleshooting
+- **`README.md`** – Troubleshooting (e.g. organizations `member=true`)
+- **`VERIFICATION_REPORT.md`** (this file) – Test results and verification steps
 
 ---
 

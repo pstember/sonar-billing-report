@@ -26,13 +26,16 @@ function isSystemDark(): boolean {
   );
 }
 
-/** Apply theme to document: add or remove .dark on <html> */
+/** Apply theme to document: add or remove .dark on <html>. Dispatches 'themechange' so components (e.g. AG-Grid) can re-render. */
 export function applyTheme(): void {
   if (typeof document === 'undefined') return;
   const theme = getStoredTheme();
   const dark =
     theme === 'dark' || (theme === 'system' && isSystemDark());
   document.documentElement.classList.toggle('dark', dark);
+  if (typeof globalThis.window !== 'undefined') {
+    globalThis.window.dispatchEvent(new CustomEvent('themechange', { detail: { dark } }));
+  }
 }
 
 /** Whether the UI should currently show dark styles */

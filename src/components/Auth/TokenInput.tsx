@@ -28,6 +28,12 @@ export default function TokenInput({ onSuccess }: TokenInputProps) {
       return;
     }
 
+    const trimmedKey = enterpriseKey.trim();
+    if (!trimmedKey) {
+      setError('Please enter your Enterprise Key. It identifies your enterprise and filters the list of organizations in the dashboard.');
+      return;
+    }
+
     setIsValidating(true);
 
     try {
@@ -35,7 +41,7 @@ export default function TokenInput({ onSuccess }: TokenInputProps) {
       const service = new SonarCloudService({
         baseUrl,
         token,
-        enterpriseKey: enterpriseKey || undefined,
+        enterpriseKey: trimmedKey,
       });
 
       // Validate token
@@ -47,14 +53,28 @@ export default function TokenInput({ onSuccess }: TokenInputProps) {
         return;
       }
 
-      // Save to database
-      // Don't save a default organization when using enterprise mode
-      // The dropdown will handle organization selection
+      // Validate enterprise key: resolve UUID then fetch org list (enterprise-organizations uses enterpriseId)
+      try {
+        const enterprises = await service.getEnterpriseDetails(trimmedKey);
+        const enterpriseId = enterprises?.[0]?.id;
+        if (!enterpriseId) {
+          setError('Invalid or unauthorized Enterprise Key. Please check the key and try again.');
+          setIsValidating(false);
+          return;
+        }
+        await service.getEnterpriseOrganizations(enterpriseId);
+      } catch {
+        setError('Invalid or unauthorized Enterprise Key. Please check the key and try again.');
+        setIsValidating(false);
+        return;
+      }
+
+      // Save to database — enterprise key is required; org is selected in dashboard
       await saveAuthConfig({
         token,
         baseUrl,
-        enterpriseKey: enterpriseKey || undefined,
-        organization: undefined, // Let user select from dropdown
+        enterpriseKey: trimmedKey,
+        organization: undefined,
         organizationName: undefined,
       });
 
@@ -108,7 +128,7 @@ export default function TokenInput({ onSuccess }: TokenInputProps) {
                 htmlFor="enterpriseKey"
                 className="block text-sm font-medium text-sonar-purple dark:text-white mb-2 font-body"
               >
-                Enterprise Key (Optional)
+                Enterprise Key *
               </label>
               <input
                 id="enterpriseKey"
@@ -120,7 +140,7 @@ export default function TokenInput({ onSuccess }: TokenInputProps) {
                 disabled={isValidating}
               />
               <p className="mt-1 text-sm text-gray-600 dark:text-slate-300 font-body">
-                Leave blank to access all organizations you have access to
+                Identifies your enterprise and is used to filter the list of organizations in the dashboard.
               </p>
             </div>
 

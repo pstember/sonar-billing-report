@@ -17,6 +17,26 @@ npm run build
 
 The build output will be in the `dist/` directory.
 
+## Running Locally with CORS Proxy
+
+The browser cannot call the SonarCloud API directly due to CORS. Use the built-in Node.js server, which serves the app and proxies `/api/*` to SonarCloud:
+
+```bash
+npm start
+```
+
+This builds and starts the server on http://localhost:3000, auto-opens the browser, and forwards `/api/*` to https://sonarcloud.io/api/* with CORS headers. It also proxies `/billing`, `/organizations`, and `/enterprises` to https://api.sonarcloud.io.
+
+**Manual start (after build):**
+```bash
+npm run build
+npm run server
+```
+
+**Environment variables:** `PORT=3000` (default), `NO_OPEN=true` to disable auto-open. Example: `PORT=8080 npm run server`.
+
+**Standalone executable:** Run `npm run package` to create binaries in `./binaries/` (macOS, Linux, Windows); no Node.js required on the target machine.
+
 ## Deployment Options
 
 ### Option 1: Netlify

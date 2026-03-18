@@ -16,7 +16,8 @@ function App() {
 
   const checkAuth = async () => {
     const auth = await getAuthConfig();
-    setIsAuthenticated(!!auth);
+    // Enterprise key is required; treat missing key as not authenticated
+    setIsAuthenticated(!!(auth?.token && auth?.enterpriseKey?.trim()));
     setIsLoading(false);
   };
 

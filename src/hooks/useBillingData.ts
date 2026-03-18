@@ -4,9 +4,15 @@
  * NOTE: Only PRIVATE projects count toward billing!
  */
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueries } from '@tanstack/react-query';
 import SonarCloudService from '../services/sonarcloud';
 import { getAuthConfig } from '../services/db';
+
+export interface SelectedOrganization {
+  key: string;
+  name: string;
+  uuid: string;
+}
 
 async function getSonarCloudService(): Promise<SonarCloudService> {
   const auth = await getAuthConfig();
@@ -98,8 +104,15 @@ export function useEnterpriseOrganizations() {
         throw new Error('Enterprise key is required. Please configure it in the login page.');
       }
 
-      // Get enterprise organizations with UUIDs
-      const enterpriseOrgs = await service.getEnterpriseOrganizations(auth.enterpriseKey);
+      // Resolve enterprise UUID from key (enterprise-organizations requires enterpriseId, not enterpriseKey)
+      const enterprises = await service.getEnterpriseDetails(auth.enterpriseKey);
+      const enterpriseId = enterprises?.[0]?.id;
+      if (!enterpriseId) {
+        throw new Error('Enterprise not found for the given enterprise key. Please check your enterprise key.');
+      }
+
+      // Get enterprise organizations with UUIDs (filtered by enterprise)
+      const enterpriseOrgs = await service.getEnterpriseOrganizations(enterpriseId);
 
       // Get organization details using UUIDs
       const uuids = enterpriseOrgs.map(eo => eo.organizationUuidV4);
@@ -162,9 +175,12 @@ export function useBillingOverview(organization?: { key: string; uuid: string })
   const totalLOC = privateLOC + publicLOC;
 
   // Get consumption from API (source of truth)
-  const consumed = consumptionData?.consumptionSummaries?.[0]?.usage;
-  const limit = consumptionData?.consumptionSummaries?.[0]?.allowance;
+  const summary = consumptionData?.consumptionSummaries?.[0];
+  const consumed = summary?.usage;
+  const limit = summary?.allowance;
   const usagePercent = limit && limit > 0 ? ((consumed || 0) / limit) * 100 : 0;
+  const mode: ConsumptionMode | undefined =
+    summary?.mode === 'absoluteReserved' || summary?.mode === 'unreserved' ? summary.mode : undefined;
 
   return {
     // Project counts
@@ -181,6 +197,7 @@ export function useBillingOverview(organization?: { key: string; uuid: string })
     consumed,
     limit,
     usagePercent,
+    mode,
 
     // Per-project data
     privateProjects,
@@ -200,5 +217,124 @@ export function useBillingOverview(organization?: { key: string; uuid: string })
     // API doesn't provide period dates in this endpoint
     periodStartDate: undefined,
     periodEndDate: undefined,
+  };
+}
+
+/** Consumption mode: absoluteReserved = per-org (count in aggregate); unreserved = pooled (count once). */
+export type ConsumptionMode = 'absoluteReserved' | 'unreserved';
+
+/** Per-org billing snapshot for multi-org aggregate */
+export interface BillingOverviewOrg {
+  key: string;
+  name: string;
+  uuid: string;
+  consumed: number | undefined;
+  limit: number | undefined;
+  usagePercent: number;
+  /** absoluteReserved = private to org; unreserved = pooled (count once in multi-org total) */
+  mode?: ConsumptionMode;
+  privateProjectCount: number;
+  publicProjectCount: number;
+  totalProjects: number;
+}
+
+/**
+ * Fetch billing overview for a single org (for use in useQueries)
+ */
+async function fetchBillingOverviewForOrg(
+  service: SonarCloudService,
+  org: { key: string; uuid: string; name: string }
+): Promise<BillingOverviewOrg> {
+  const [nclocRes, consumptionRes] = await Promise.all([
+    service.getBillingNCLOCDistribution({ organization: org.key, ps: 100 }),
+    service.getConsumptionSummaries({
+      resourceId: org.uuid,
+      key: 'linesOfCode',
+      resourceType: 'organization',
+      pageIndex: 1,
+      pageSize: 1,
+    }),
+  ]);
+  const privateProjects = nclocRes.projects?.filter((p) => p.visibility === 'private') ?? [];
+  const publicProjects = nclocRes.projects?.filter((p) => p.visibility === 'public') ?? [];
+  const summary = consumptionRes.consumptionSummaries?.[0];
+  const consumed = summary?.usage;
+  const limit = summary?.allowance;
+  const mode: ConsumptionMode | undefined =
+    summary?.mode === 'absoluteReserved' || summary?.mode === 'unreserved' ? summary.mode : undefined;
+  const usagePercent = limit && limit > 0 ? ((consumed ?? 0) / limit) * 100 : 0;
+  return {
+    key: org.key,
+    name: org.name,
+    uuid: org.uuid,
+    consumed,
+    limit,
+    usagePercent,
+    mode,
+    privateProjectCount: privateProjects.length,
+    publicProjectCount: publicProjects.length,
+    totalProjects: nclocRes.paging?.total ?? 0,
+  };
+}
+
+/**
+ * Multi-org billing overview: fetches per-org data in parallel and returns aggregated + byOrg
+ */
+export function useMultiOrgBillingOverview(orgs: SelectedOrganization[]) {
+  const queries = useQueries({
+    queries: orgs.map((org) => ({
+      queryKey: ['billingOverviewOrg', org.key],
+      queryFn: async () => {
+        const service = await getSonarCloudService();
+        return fetchBillingOverviewForOrg(service, org);
+      },
+      staleTime: 5 * 60 * 1000,
+    })),
+  });
+
+  const isLoading = queries.some((q) => q.isLoading);
+  const error = queries.find((q) => q.error)?.error;
+  const byOrg: BillingOverviewOrg[] = queries.map((q) => q.data).filter(Boolean) as BillingOverviewOrg[];
+  /** One entry per selected org: resolved data or loading/error so the table can show all selected orgs */
+  const orgResults: Array<{
+    org: SelectedOrganization;
+    data: BillingOverviewOrg | undefined;
+    isPending: boolean;
+    error: Error | null;
+  }> = orgs.map((org, i) => ({
+    org,
+    data: queries[i]?.data,
+    isPending: queries[i]?.status === 'pending',
+    error: queries[i]?.error ?? null,
+  }));
+  // absoluteReserved = per-org (sum); unreserved = pooled (count once)
+  const reservedOrgs = byOrg.filter((o) => o.mode === 'absoluteReserved');
+  const unreservedOrgs = byOrg.filter((o) => o.mode === 'unreserved');
+  const consumedReserved = reservedOrgs.reduce((sum, o) => sum + (o.consumed ?? 0), 0);
+  const consumedUnreserved = unreservedOrgs.length > 0
+    ? Math.max(...unreservedOrgs.map((o) => o.consumed ?? 0))
+    : 0;
+  const consumed = consumedReserved + consumedUnreserved;
+  const limitReserved = reservedOrgs.reduce((sum, o) => sum + (o.limit ?? 0), 0);
+  const limitUnreserved = unreservedOrgs.length > 0
+    ? Math.max(...unreservedOrgs.map((o) => o.limit ?? 0))
+    : 0;
+  const limit = limitReserved + limitUnreserved;
+  const usagePercent = limit > 0 ? (consumed / limit) * 100 : 0;
+  const privateProjectCount = byOrg.reduce((s, o) => s + o.privateProjectCount, 0);
+  const publicProjectCount = byOrg.reduce((s, o) => s + o.publicProjectCount, 0);
+  const totalProjects = byOrg.reduce((s, o) => s + o.totalProjects, 0);
+
+  return {
+    consumed,
+    limit,
+    usagePercent,
+    privateProjectCount,
+    publicProjectCount,
+    totalProjects,
+    byOrg,
+    orgResults,
+    isLoading,
+    error,
   };
 }

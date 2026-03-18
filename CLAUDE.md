@@ -4,12 +4,19 @@ This file contains guidelines and important information for developing and maint
 
 ## 📋 Table of Contents
 
+- [Documentation principle](#documentation-principle)
 - [Brand Guidelines](#brand-guidelines)
 - [API Constraints](#api-constraints)
 - [Code Standards](#code-standards)
 - [Project Structure](#project-structure)
 - [Testing](#testing)
 - [Security](#security)
+
+---
+
+## Documentation principle
+
+**Code is source of truth.** Docs complement the codebase: they provide entrypoints (README, QUICK_START) and point to code for endpoints, constants, and structure. Do not duplicate what can be inferred from `src/services/sonarcloud.ts`, `server.js`, `src/constants/api.ts`, and `package.json`. When adding or changing docs, prefer "see [file]" over pasting lists or values that will drift.
 
 ---
 
@@ -301,8 +308,6 @@ SONAR_TOKEN=your_token_here
 ### Documentation
 
 - **Security Guide**: [SECURITY.md](./SECURITY.md)
-- **Security Update**: [SECURITY_UPDATE.md](./SECURITY_UPDATE.md)
-- **Quick Reference**: [README_SECURITY.md](./README_SECURITY.md)
 
 ---
 
@@ -314,11 +319,13 @@ SONAR_TOKEN=your_token_here
 |------|---------|
 | `README.md` | Main project documentation |
 | `QUICK_START.md` | Getting started guide |
+| `DEPLOYMENT.md` | Deploy options and local proxy |
+| `SECURITY.md` | Security best practices |
+| `API_LIMITS.md` | SonarCloud API limits |
+| `DASHBOARD_LOADING.md` | Which API calls run on load, when they are remade vs cached |
 | `BRAND_IMPLEMENTATION.md` | Brand implementation details |
 | `BRAND_COLORS_REFERENCE.md` | Color palette reference |
-| `API_FIX_SUMMARY.md` | API fixes and changes |
-| `SECURITY.md` | Security best practices |
-| `CHANGES_SUMMARY.md` | Complete change log |
+| `CHANGELOG.md` | Recent changes |
 
 ### Code References
 
@@ -356,12 +363,11 @@ Before implementing a new feature:
 
 ### For API Questions
 - Check [src/constants/api.ts](./src/constants/api.ts)
-- Review [API_FIX_SUMMARY.md](./API_FIX_SUMMARY.md)
+- Review [API_LIMITS.md](./API_LIMITS.md)
 - Test with [test-api.js](./test-api.js)
 
 ### For Security Questions
 - Review [SECURITY.md](./SECURITY.md)
-- Check [README_SECURITY.md](./README_SECURITY.md)
 
 ---
 

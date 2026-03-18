@@ -1,28 +1,40 @@
 /**
  * Organization Selector Component
- * Allows switching between organizations in an enterprise
+ * Allows switching between organizations in an enterprise (single or multi-select)
  */
 
-import { useEnterpriseOrganizations } from '../hooks/useBillingData';
+import { useEnterpriseOrganizations, type SelectedOrganization } from '../hooks/useBillingData';
 import { saveSetting, getSetting } from '../services/db';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 
-export interface SelectedOrganization {
-  key: string;
-  name: string;
-  uuid: string;
-}
+export type { SelectedOrganization } from '../hooks/useBillingData';
 
-interface OrganizationSelectorProps {
+interface OrganizationSelectorPropsSingle {
+  multiSelect?: false;
   onOrganizationChange: (organization: SelectedOrganization) => void;
+  selectedOrganizations?: never;
+  onOrganizationsChange?: never;
 }
 
-export default function OrganizationSelector({ onOrganizationChange }: OrganizationSelectorProps) {
+interface OrganizationSelectorPropsMulti {
+  multiSelect: true;
+  selectedOrganizations: SelectedOrganization[];
+  onOrganizationsChange: (organizations: SelectedOrganization[]) => void;
+  onOrganizationChange?: never;
+}
+
+type OrganizationSelectorProps = OrganizationSelectorPropsSingle | OrganizationSelectorPropsMulti;
+
+export default function OrganizationSelector(props: OrganizationSelectorProps) {
+  const { multiSelect = false } = props;
   const { data: organizations, isLoading, error } = useEnterpriseOrganizations();
   const [selectedOrg, setSelectedOrg] = useState<string>('');
+  const [selectedKeysMulti, setSelectedKeysMulti] = useState<Set<string>>(new Set());
 
-  // Load saved organization on mount
+  // Single-select: load saved organization on mount
   useEffect(() => {
+    if (multiSelect) return;
+    const onOrganizationChange = (props as OrganizationSelectorPropsSingle).onOrganizationChange;
     const loadSavedOrg = async () => {
       if (!organizations || organizations.length === 0) return;
 
@@ -36,22 +48,46 @@ export default function OrganizationSelector({ onOrganizationChange }: Organizat
         }
       }
 
-      // Default to first organization
       const firstOrg = organizations[0];
       setSelectedOrg(firstOrg.key);
       onOrganizationChange({ key: firstOrg.key, name: firstOrg.name, uuid: firstOrg.uuid });
     };
     loadSavedOrg();
-  }, [organizations]);
+  }, [organizations, multiSelect]);
 
-  const handleChange = async (orgKey: string) => {
-    const org = organizations?.find(o => o.key === orgKey);
-    if (!org) return;
+  // Multi-select: sync from controlled value
+  useEffect(() => {
+    if (!multiSelect) return;
+    const selected = (props as OrganizationSelectorPropsMulti).selectedOrganizations ?? [];
+    setSelectedKeysMulti(new Set(selected.map((o) => o.key)));
+  }, [multiSelect, (props as OrganizationSelectorPropsMulti).selectedOrganizations]);
 
-    setSelectedOrg(orgKey);
-    await saveSetting('selectedOrganization', orgKey);
-    onOrganizationChange({ key: org.key, name: org.name, uuid: org.uuid });
-  };
+  const handleChangeSingle = useCallback(
+    async (orgKey: string) => {
+      const org = organizations?.find(o => o.key === orgKey);
+      if (!org || multiSelect) return;
+      const onOrganizationChange = (props as OrganizationSelectorPropsSingle).onOrganizationChange;
+      setSelectedOrg(orgKey);
+      await saveSetting('selectedOrganization', orgKey);
+      onOrganizationChange({ key: org.key, name: org.name, uuid: org.uuid });
+    },
+    [organizations, multiSelect, props]
+  );
+
+  const handleToggleMulti = useCallback(
+    (org: SelectedOrganization, checked: boolean) => {
+      if (!multiSelect) return;
+      const { onOrganizationsChange } = props as OrganizationSelectorPropsMulti;
+      const next = new Set(selectedKeysMulti);
+      if (checked) next.add(org.key);
+      else next.delete(org.key);
+      setSelectedKeysMulti(next);
+      const list = organizations?.filter((o) => next.has(o.key)) ?? [];
+      onOrganizationsChange(list);
+      saveSetting('selectedOrganizations', list.map((o) => ({ key: o.key, name: o.name, uuid: o.uuid })));
+    },
+    [multiSelect, organizations, selectedKeysMulti, props]
+  );
 
   if (error) {
     return (
@@ -86,8 +122,8 @@ export default function OrganizationSelector({ onOrganizationChange }: Organizat
     );
   }
 
-  // If only one organization, show it but don't make it a dropdown
-  if (organizations.length === 1) {
+  // If only one organization and single mode, show it but don't make it a dropdown
+  if (organizations.length === 1 && !multiSelect) {
     return (
       <div className="flex items-center gap-3 px-4 py-2 bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm">
         <svg className="w-5 h-5 text-sonar-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -96,6 +132,33 @@ export default function OrganizationSelector({ onOrganizationChange }: Organizat
         <div>
           <div className="text-xs font-medium text-sonar-purple dark:text-white uppercase tracking-wide">Organization</div>
           <div className="text-sm font-bold text-gray-900 dark:text-white">{organizations[0].name}</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Multi-select: list with checkboxes
+  if (multiSelect) {
+    return (
+      <div className="flex items-center gap-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm overflow-hidden">
+        <div className="flex items-center gap-2 px-4 py-2 bg-sonar-blue/5 dark:bg-sonar-blue/10 border-r border-gray-300 dark:border-gray-600">
+          <svg className="w-5 h-5 text-sonar-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+          </svg>
+          <span className="text-xs font-bold text-sonar-purple dark:text-white uppercase tracking-wide">Organizations</span>
+        </div>
+        <div className="flex-1 px-4 py-2 flex flex-wrap gap-3 items-center">
+          {organizations.map((org) => (
+            <label key={org.key} className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={selectedKeysMulti.has(org.key)}
+                onChange={(e) => handleToggleMulti(org, e.target.checked)}
+                className="rounded border-gray-400 text-sonar-blue focus:ring-sonar-blue"
+              />
+              <span className="text-sm font-medium text-gray-900 dark:text-white">{org.name}</span>
+            </label>
+          ))}
         </div>
       </div>
     );
@@ -111,7 +174,7 @@ export default function OrganizationSelector({ onOrganizationChange }: Organizat
       </div>
       <select
         value={selectedOrg}
-        onChange={(e) => handleChange(e.target.value)}
+        onChange={(e) => handleChangeSingle(e.target.value)}
         className="flex-1 px-4 py-2 bg-transparent text-sm font-semibold text-gray-900 dark:text-white font-body focus:outline-none focus:ring-2 focus:ring-sonar-blue cursor-pointer"
       >
         {organizations.map((org) => (

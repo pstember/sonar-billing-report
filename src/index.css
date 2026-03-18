@@ -20,6 +20,13 @@
   --font-sans*: 'Poppins', ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-body*: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono*: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Load progress spinner (Bootstrap-style rotating circle) */
+  --animate-spinner-load: spinner-rotate 0.75s linear infinite;
+  @keyframes spinner-rotate {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
 }
 
 /* Ensure brand variables exist on :root so component classes and utilities resolve */
@@ -165,19 +172,17 @@
     border-top: 4px solid var(--color-sonar-blue);
   }
 
-  /* Sonar color utilities – use :root variables so colors always resolve */
-  .bg-sonar-blue { background-color: var(--color-sonar-blue) !important; }
-  .bg-sonar-blue\/5 { background-color: color-mix(in srgb, var(--color-sonar-blue) 5%, transparent) !important; }
-  .bg-sonar-blue\/10 { background-color: color-mix(in srgb, var(--color-sonar-blue) 10%, transparent) !important; }
-  .bg-sonar-blue\/20 { background-color: color-mix(in srgb, var(--color-sonar-blue) 20%, transparent) !important; }
-  .bg-sonar-blue-secondary { background-color: var(--color-sonar-blue-secondary) !important; }
-  .bg-sonar-blue-light { background-color: var(--color-sonar-blue-light) !important; }
-  .bg-sonar-purple { background-color: var(--color-sonar-purple) !important; }
-  .bg-sonar-purple-dark { background-color: var(--color-sonar-purple-dark) !important; }
-  .bg-sonar-background { background-color: var(--color-sonar-background) !important; }
-  .bg-sonar-teal { background-color: var(--color-sonar-teal) !important; }
-
-  /* No !important on text colors so dark: overrides (e.g. dark:text-white) can win in dark mode */
+  /* Sonar color utilities – use :root/.dark variables. No !important on bg/text so dark: overrides can win. */
+  .bg-sonar-blue { background-color: var(--color-sonar-blue); }
+  .bg-sonar-blue\/5 { background-color: color-mix(in srgb, var(--color-sonar-blue) 5%, transparent); }
+  .bg-sonar-blue\/10 { background-color: color-mix(in srgb, var(--color-sonar-blue) 10%, transparent); }
+  .bg-sonar-blue\/20 { background-color: color-mix(in srgb, var(--color-sonar-blue) 20%, transparent); }
+  .bg-sonar-blue-secondary { background-color: var(--color-sonar-blue-secondary); }
+  .bg-sonar-blue-light { background-color: var(--color-sonar-blue-light); }
+  .bg-sonar-purple { background-color: var(--color-sonar-purple); }
+  .bg-sonar-purple-dark { background-color: var(--color-sonar-purple-dark); }
+  .bg-sonar-background { background-color: var(--color-sonar-background); }
+  .bg-sonar-teal { background-color: var(--color-sonar-teal); }
   .text-sonar-blue { color: var(--color-sonar-blue); }
   .text-sonar-blue-secondary { color: var(--color-sonar-blue-secondary); }
   .text-sonar-purple { color: var(--color-sonar-purple); }
@@ -198,8 +203,94 @@
   .from-sonar-background { --tw-gradient-from: var(--color-sonar-background); --tw-gradient-to: var(--color-sonar-background); --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important; }
   .to-sonar-blue-light { --tw-gradient-to: var(--color-sonar-blue-light) !important; }
 
-  .dark .dark\:bg-sonar-blue\/10 { background-color: color-mix(in srgb, var(--color-sonar-blue) 10%, transparent) !important; }
-  .dark .dark\:bg-sonar-blue\/20 { background-color: color-mix(in srgb, var(--color-sonar-blue) 20%, transparent) !important; }
+  .dark .dark\:bg-sonar-blue\/10 { background-color: color-mix(in srgb, var(--color-sonar-blue) 10%, transparent); }
+  .dark .dark\:bg-sonar-blue\/20 { background-color: color-mix(in srgb, var(--color-sonar-blue) 20%, transparent); }
+
+  /* Load progress: Bootstrap-style striped animated bar and spinner */
+  @keyframes progress-bar-stripes {
+    0% { background-position: 0.5rem 0; }
+    100% { background-position: 0 0; }
+  }
+  @keyframes load-progress-spinner-rotate {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  /* 3/4 arc so rotation is visible (90° gap) */
+  .load-progress-spinner {
+    --spinner-color: var(--color-sonar-blue);
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 50%;
+    background: conic-gradient(
+      from 0deg,
+      var(--spinner-color) 0deg 270deg,
+      transparent 270deg 360deg
+    );
+    mask: radial-gradient(circle, transparent 45%, black 45%);
+    -webkit-mask: radial-gradient(circle, transparent 45%, black 45%);
+    animation: load-progress-spinner-rotate 0.75s linear infinite;
+  }
+  .load-progress-spinner--pending {
+    --spinner-color: #9ca3af; /* gray-400 */
+  }
+  .dark .load-progress-spinner--pending {
+    --spinner-color: #64748b; /* slate-500 */
+  }
+  .load-progress-bar-fill {
+    background-color: var(--color-sonar-blue);
+    background-image: linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.2) 25%,
+      transparent 25%,
+      transparent 50%,
+      rgba(255, 255, 255, 0.2) 50%,
+      rgba(255, 255, 255, 0.2) 75%,
+      transparent 75%,
+      transparent
+    );
+    background-size: 0.5rem 0.5rem;
+    animation: progress-bar-stripes 0.75s linear infinite;
+    transition: width 0.35s ease-out;
+  }
+
+  /* Billing Details: grey card so the table is visible on the dark blue page */
+  html.dark .billing-details-card {
+    background-color: rgb(30 41 59) !important; /* slate-800 */
+    border-color: rgb(71 85 105) !important;
+  }
+  /* AG-Grid: grey background so rows/cells are readable */
+  html.dark .billing-details-card .ag-root-wrapper,
+  html.dark .billing-details-card .ag-root-wrapper-body,
+  html.dark .billing-details-card .ag-center-cols-viewport,
+  html.dark .billing-details-card .ag-body-viewport {
+    background-color: rgb(30 41 59) !important;
+  }
+  html.dark .billing-details-card .ag-header-row,
+  html.dark .billing-details-card .ag-header-cell {
+    background-color: rgb(51 65 85) !important; /* slate-700, slightly darker header */
+    color: #fff !important;
+  }
+  html.dark .billing-details-card .ag-row,
+  html.dark .billing-details-card .ag-row-even,
+  html.dark .billing-details-card .ag-row-odd {
+    background-color: rgb(30 41 59) !important;
+    color: #fff !important;
+  }
+  html.dark .billing-details-card .ag-cell,
+  html.dark .billing-details-card .ag-header-cell-text {
+    color: #fff !important;
+  }
+  /* Horizontal row lines only (no column lines), consistent with light mode */
+  html.dark .billing-details-card .ag-row {
+    border-top: 1px solid rgba(148, 163, 184, 0.5) !important;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.35) !important;
+  }
+  html.dark .billing-details-card .ag-header-row {
+    border-bottom: 1px solid rgba(148, 163, 184, 0.6) !important;
+  }
+  html.dark .billing-details-card .ag-overlay-no-rows-center {
+    color: rgba(255, 255, 255, 0.7) !important;
+  }
 
   /* Sonar font utilities – use :root variables so fonts always resolve */
   .font-sans { font-family: var(--font-sans) !important; }

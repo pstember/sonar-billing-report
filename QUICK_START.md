@@ -7,23 +7,12 @@
 npm install
 ```
 
-### 2. Configure Your Token
-```bash
-# Copy the example environment file
-cp .env.example .env
-
-# Edit .env and add your SonarCloud token
-# SONAR_TOKEN=your_token_here
-```
-
-**Important:** Never commit the `.env` file to git. It's already in `.gitignore`.
-
-### 3. Build the Application
+### 2. Build the Application
 ```bash
 npm run build
 ```
 
-### 4. Start the Server
+### 3. Start the Server
 ```bash
 npm run server
 # or
@@ -33,19 +22,11 @@ npm start  # (builds and starts in one command)
 The application will:
 - Start on `http://localhost:3000`
 - Automatically open your browser
-- Display the SonarCloud Billing Report dashboard
+- Show the welcome screen
 
-## Using the Application
+Enter your SonarCloud token on the welcome screen (get one from SonarCloud → My Account → Security → Generate Token). The app stores it in the browser and does not need a `.env` file.
 
-### First Time Setup
-1. Create `.env` file from `.env.example`:
-   ```bash
-   cp .env.example .env
-   ```
-2. Edit `.env` and add your SonarCloud token
-3. Start the server with `npm start`
-4. Enter your token in the browser when prompted
-5. The token will be validated automatically
+**Optional:** If you run the test scripts from the command line (`node test-api.js` or `node test-e2e.js`), create a `.env` from `.env.example` and set `SONAR_TOKEN` so you don't have to pass the token as an argument. Never commit `.env`; it's in `.gitignore`.
 
 ## Testing the API
 
@@ -92,9 +73,9 @@ Success Rate: 100.0%
 - View cost breakdowns and trends
 
 ### API Integration
-The application connects to SonarCloud API through a built-in proxy server:
+The application connects to SonarCloud through a built-in proxy server:
 - **Frontend**: `http://localhost:3000`
-- **API Proxy**: `http://localhost:3000/api/*` → `https://sonarcloud.io/api/*`
+- **Proxy**: `/api/*` → https://sonarcloud.io/api/*; `/billing`, `/organizations`, `/enterprises` → https://api.sonarcloud.io. See `server.js` for full mapping.
 - **Token**: Passed via Bearer authentication
 
 ### Data Endpoints
@@ -138,7 +119,6 @@ npm run build
 
 ### Project Structure
 ```
-sonar-billing-report/
 ├── src/
 │   ├── components/      # React components
 │   ├── services/        # API services
@@ -159,7 +139,8 @@ sonar-billing-report/
 ## Support
 
 For issues or questions:
-1. Check `API_FIX_SUMMARY.md` for recent fixes
+1. See [README.md](./README.md) (Troubleshooting) and [API_LIMITS.md](./API_LIMITS.md)
 2. Run `node test-api.js` to verify API connectivity
 3. Check browser console for detailed errors
 4. Review server logs for proxy errors
+5. Development guidelines: [CLAUDE.md](./CLAUDE.md)

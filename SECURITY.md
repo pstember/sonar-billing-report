@@ -2,12 +2,16 @@
 
 ## Token Management
 
+**Using the app:** The app asks for your SonarCloud token on the welcome screen and stores it in the browser (IndexedDB). No `.env` file is required to run the app.
+
+**Running test scripts:** If you run `node test-api.js` or `node test-e2e.js` from the command line, you can put the token in a `.env` file (or pass it as an argument) so you don't have to type it each time. The app itself never reads `.env`.
+
 ### ✅ DO
 
-1. **Store tokens in `.env` file**
+1. **For test scripts only: store token in `.env`**
    ```bash
    cp .env.example .env
-   # Edit .env and add your token
+   # Edit .env and add your token (only needed for test-api.js / test-e2e.js)
    ```
 
 2. **Verify `.env` is in `.gitignore`**

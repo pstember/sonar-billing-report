@@ -1,6 +1,9 @@
 /**
  * API Endpoint Test Script
- * Tests all SonarCloud API endpoints with provided token
+ * Tests SonarCloud API connectivity with provided token.
+ * Note: The app uses components/search_projects for the project list; this script
+ * tests projects/search for API connectivity. For full endpoints used by the app
+ * see src/services/sonarcloud.ts.
  *
  * Usage:
  *   node test-api.js                    # Uses token from .env file

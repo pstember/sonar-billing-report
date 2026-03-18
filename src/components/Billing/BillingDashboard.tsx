@@ -1,58 +1,126 @@
 /**
  * Main Billing Dashboard
- * Integrates all billing components
+ * Integrates all billing components (single-org, multi-org aggregate, or all-org summary)
  */
 
 import { useState, useEffect, useMemo } from 'react';
-import { clearAuth } from '../../services/db';
+import { useQueryClient } from '@tanstack/react-query';
+import { clearAuth, clearCache, getSetting, saveSetting } from '../../services/db';
 import CostCenters from './CostCenters';
 import CostCalculator from './CostCalculator';
 import LOCTrendChart from '../Charts/LOCTrendChart';
 import TeamCostPieChart from '../Charts/TeamCostPieChart';
 import BillingPivotTable from '../PivotTable/BillingPivotTable';
 import CacheIndicator from '../CacheIndicator';
+import LoadProgressBar from './LoadProgressBar';
 import OrganizationSelector, { type SelectedOrganization } from '../OrganizationSelector';
 import ThemeSelector from '../ThemeSelector';
 import { exportToCSV, exportToExcel, exportToPDF } from '../../utils/exportUtils';
 import { getCurrencySymbol } from '../../utils/costCalculations';
 import { useProjectsRealData } from '../../hooks/useProjectsRealData';
-import { useProjects } from '../../hooks/useSonarCloudData';
-import { useBillingOverview } from '../../hooks/useBillingData';
+import { useProjects, useProjectsForOrganizations } from '../../hooks/useSonarCloudData';
+import { useBillingOverview, useMultiOrgBillingOverview, useEnterpriseOrganizations } from '../../hooks/useBillingData';
 import { useCostCenters, useCostCenterAssignments, useBillingConfig } from '../../hooks/useBilling';
 
+export type ViewMode = 'single' | 'multi' | 'all';
+
 export default function BillingDashboard() {
+  const queryClient = useQueryClient();
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
   const [selectedOrganization, setSelectedOrganization] = useState<SelectedOrganization | null>(null);
+  const [viewMode, setViewModeState] = useState<ViewMode>('single');
+  const [selectedOrganizations, setSelectedOrganizations] = useState<SelectedOrganization[]>([]);
 
-  // Reset selected projects when organization changes
+  const { data: enterpriseOrgs = [] } = useEnterpriseOrganizations();
+  const hasMultipleOrgs = enterpriseOrgs.length >= 2;
+
+  // Load view mode and selected organizations from settings
   useEffect(() => {
-    if (selectedOrganization) {
-      setSelectedProjects([]);
-    }
-  }, [selectedOrganization]);
+    getSetting<ViewMode>('viewMode').then((mode) => {
+      if (mode && (mode === 'single' || mode === 'multi' || mode === 'all')) setViewModeState(mode);
+    });
+    getSetting<SelectedOrganization[]>('selectedOrganizations').then((orgs) => {
+      if (Array.isArray(orgs) && orgs.length > 0) setSelectedOrganizations(orgs);
+    });
+  }, []);
 
-  // Fetch all projects for organization-level stats
-  // Only fetch if an organization is selected
+  const setViewMode = (mode: ViewMode) => {
+    setViewModeState(mode);
+    saveSetting('viewMode', mode);
+  };
+
+  const handleOrganizationsChange = (orgs: SelectedOrganization[]) => {
+    setSelectedOrganizations(orgs);
+    saveSetting('selectedOrganizations', orgs);
+  };
+
+  // Reset selected projects when organization(s) change
+  useEffect(() => {
+    if (viewMode === 'single' && selectedOrganization) setSelectedProjects([]);
+    if (viewMode === 'multi' && selectedOrganizations.length > 0) setSelectedProjects([]);
+  }, [viewMode, selectedOrganization, selectedOrganizations]);
+
+  const isMultiOrg = viewMode === 'multi' && selectedOrganizations.length >= 2;
+
+  // Single-org: projects and billing
   const { data: allProjects } = useProjects({
-    organization: selectedOrganization?.key,
-    ps: 100
+    organization: !isMultiOrg ? selectedOrganization?.key : undefined,
+    ps: 100,
   });
-  const totalProjectCount = allProjects?.paging?.total || 0;
 
-  // Calculate private/public project counts from actual project data
-  const actualPrivateProjectCount = allProjects?.components?.filter(p => p.visibility === 'private').length || 0;
-  const actualPublicProjectCount = allProjects?.components?.filter(p => p.visibility === 'public').length || 0;
+  // Multi-org: aggregated billing and merged projects
+  const multiBilling = useMultiOrgBillingOverview(isMultiOrg ? selectedOrganizations : []);
+  const mergedProjectsResult = useProjectsForOrganizations(isMultiOrg ? selectedOrganizations : []);
 
-  // Fetch billing data (NCLOC distribution + consumption)
-  // NOTE: Only PRIVATE projects count toward billing!
-  // Only fetch if an organization is selected
+  // All-org summary: per-org billing data when view is "All organizations"
+  const isAllOrgsView = viewMode === 'all';
+  const allOrgsBilling = useMultiOrgBillingOverview(isAllOrgsView ? enterpriseOrgs : []);
+
   const {
-    consumed,
-    limit,
-    privateProjectCount,
-    publicProjectCount,
-    isLoading: isLoadingBilling,
-  } = useBillingOverview(selectedOrganization ? { key: selectedOrganization.key, uuid: selectedOrganization.uuid } : undefined);
+    consumed: singleConsumed,
+    limit: singleLimit,
+    mode: singleMode,
+    privateProjectCount: singlePrivateCount,
+    publicProjectCount: singlePublicCount,
+    isLoading: isLoadingBillingSingle,
+  } = useBillingOverview(!isMultiOrg && selectedOrganization ? { key: selectedOrganization.key, uuid: selectedOrganization.uuid } : undefined);
+
+  const consumed = isMultiOrg ? multiBilling.consumed : singleConsumed;
+  const limit = isMultiOrg ? multiBilling.limit : singleLimit;
+  const privateProjectCount = isMultiOrg ? multiBilling.privateProjectCount : singlePrivateCount;
+  const publicProjectCount = isMultiOrg ? multiBilling.publicProjectCount : singlePublicCount;
+  const isLoadingBilling = isMultiOrg ? multiBilling.isLoading : isLoadingBillingSingle;
+
+  const totalProjectCount = isMultiOrg
+    ? mergedProjectsResult.totalCount
+    : (allProjects?.paging?.total ?? 0);
+  const actualPrivateProjectCount = isMultiOrg
+    ? mergedProjectsResult.projects.filter((p) => p.visibility === 'private').length
+    : (allProjects?.components?.filter((p) => p.visibility === 'private').length ?? 0);
+  const actualPublicProjectCount = isMultiOrg
+    ? mergedProjectsResult.projects.filter((p) => p.visibility === 'public').length
+    : (allProjects?.components?.filter((p) => p.visibility === 'public').length ?? 0);
+
+  const projectKeyToOrgName = useMemo(() => {
+    const m = new Map<string, string>();
+    mergedProjectsResult.projects.forEach((p) => {
+      if ('organizationName' in p) m.set(p.key, p.organizationName);
+    });
+    return m;
+  }, [mergedProjectsResult.projects]);
+
+  /** Per-org private/public counts from projects list (billing NCLOC API often omits visibility) */
+  const perOrgProjectCounts = useMemo(() => {
+    const m = new Map<string, { private: number; public: number }>();
+    mergedProjectsResult.projects.forEach((p) => {
+      const key = 'organizationKey' in p ? (p as { organizationKey: string }).organizationKey : '';
+      if (!key) return;
+      if (!m.has(key)) m.set(key, { private: 0, public: 0 });
+      const v = p.visibility === 'private' ? 'private' : 'public';
+      m.get(key)![v]++;
+    });
+    return m;
+  }, [mergedProjectsResult.projects]);
 
   const { data: costCenters = [] } = useCostCenters();
   const { data: allAssignments = [] } = useCostCenterAssignments();
@@ -63,10 +131,12 @@ export default function BillingDashboard() {
     [allAssignments]
   );
 
-  // Include all private projects so unassigned LOC counts projects not assigned to any cost center (e.g. 2 of 9 not selected/assigned).
   const allPrivateProjectKeys = useMemo(
-    () => allProjects?.components?.filter((p) => p.visibility === 'private').map((p) => p.key) ?? [],
-    [allProjects]
+    () =>
+      isMultiOrg
+        ? mergedProjectsResult.projects.filter((p) => p.visibility === 'private').map((p) => p.key)
+        : (allProjects?.components?.filter((p) => p.visibility === 'private').map((p) => p.key) ?? []),
+    [isMultiOrg, mergedProjectsResult.projects, allProjects]
   );
 
   const projectKeysForData = useMemo(
@@ -157,17 +227,19 @@ export default function BillingDashboard() {
     const nclocByKey = new Map(projectsData.map((p) => [p.key, p.ncloc]));
     const projectNameByKey = new Map(projectsData.map((p) => [p.key, p.name]));
     const config = billingConfig ?? { defaultRate: 10, currency: 'USD' };
-    const rows: Array<{
+    type Row = {
       costCenterName: string;
       costCenterCode: string;
       projectKey: string;
       projectName: string;
+      organizationName?: string;
       allocationPercentage: number;
       ncloc: number;
       allocatedLoc: number;
       cost: number;
       costContractShare: number;
-    }> = [];
+    };
+    const rows: Row[] = [];
 
     // Per-project allocated LOC (sum of allocated portions across all cost center assignments)
     const allocatedByProject = new Map<string, number>();
@@ -190,6 +262,7 @@ export default function BillingDashboard() {
         costCenterCode: cc?.code ?? '',
         projectKey: a.projectKey,
         projectName: projectNameByKey.get(a.projectKey) ?? a.projectKey,
+        organizationName: projectKeyToOrgName.get(a.projectKey),
         allocationPercentage: pct,
         ncloc,
         allocatedLoc,
@@ -213,6 +286,7 @@ export default function BillingDashboard() {
         costCenterCode: '',
         projectKey: '__unassigned__',
         projectName: 'All unassigned',
+        organizationName: isMultiOrg ? '—' : undefined,
         allocationPercentage: 0,
         ncloc: totalUnassignedLoc,
         allocatedLoc: 0,
@@ -246,6 +320,7 @@ export default function BillingDashboard() {
         costCenterCode: '',
         projectKey: '__unused__',
         projectName: 'Unused LOC',
+        organizationName: isMultiOrg ? '—' : undefined,
         allocationPercentage: 0,
         ncloc: unusedAllocatedLOC,
         allocatedLoc: 0,
@@ -279,10 +354,12 @@ export default function BillingDashboard() {
     }
     rows.splice(0, rows.length, ...shareRows);
     return { rows, totalScopeLoc };
-  }, [costCenters, allAssignments, projectsData, billingConfig, limit]);
+  }, [costCenters, allAssignments, projectsData, billingConfig, limit, isMultiOrg, projectKeyToOrgName]);
 
   const handleLogout = async () => {
     if (confirm('Are you sure you want to log out?')) {
+      queryClient.clear();
+      await clearCache();
       await clearAuth();
       window.location.reload();
     }
@@ -320,83 +397,52 @@ export default function BillingDashboard() {
     return { segments, unassignedCost, unassignedLicenseShare, unusedLicenseShare };
   }, [billingRows, costCenterDistribution.costCenterSegments]);
 
-  const handleExportCSV = () => {
-    if (!billingRows || billingRows.length === 0) return;
+  // Calculate stats for selected projects (exclude 0 LOC = no scan)
+  const selectedLOC = projectsData.reduce((sum, p) => sum + p.ncloc, 0);
+
+  const buildExportRows = useMemo(() => {
     const curr = billingConfig?.currency ?? 'USD';
     const sym = getCurrencySymbol(curr);
-    const exportData = billingRows.map((row) => ({
-      'Cost center': row.costCenterCode ? `${row.costCenterName} (${row.costCenterCode})` : row.costCenterName,
-      Project: row.projectName,
-      'Allocation %': row.allocationPercentage,
-      'Total LOC': row.ncloc,
-      'Allocated LOC': row.allocatedLoc,
-      [`Cost rate-based (${sym})`]: row.cost,
-      [`License share (${sym})`]: row.costContractShare,
-    }));
-    exportData.push({
-      'Cost center': 'Total',
-      Project: 'All projects',
-      'Allocation %': '',
-      'Total LOC': selectedLOC,
-      'Allocated LOC': billingTotals.allocatedLoc,
-      [`Cost rate-based (${sym})`]: billingTotals.cost,
-      [`License share (${sym})`]: billingTotals.costContractShare,
-    });
-    exportToCSV(exportData, `billing-details-${new Date().toISOString().split('T')[0]}.csv`);
+    return (rows: typeof billingRows, totalLoc: number, totals: { allocatedLoc: number; cost: number; costContractShare: number }) => {
+      const baseRow = (row: typeof billingRows[0]) => ({
+        ...(isMultiOrg ? { Organization: row.organizationName ?? '—' } : {}),
+        'Cost center': row.costCenterCode ? `${row.costCenterName} (${row.costCenterCode})` : row.costCenterName,
+        Project: row.projectName,
+        'Allocation %': row.allocationPercentage,
+        'Total LOC': row.ncloc,
+        'Allocated LOC': row.allocatedLoc,
+        [`Cost rate-based (${sym})`]: row.cost,
+        [`License share (${sym})`]: row.costContractShare,
+      });
+      const data = rows.map(baseRow);
+      data.push({
+        ...(isMultiOrg ? { Organization: '—' } : {}),
+        'Cost center': 'Total',
+        Project: 'All projects',
+        'Allocation %': 0,
+        'Total LOC': totalLoc,
+        'Allocated LOC': totals.allocatedLoc,
+        [`Cost rate-based (${sym})`]: totals.cost,
+        [`License share (${sym})`]: totals.costContractShare,
+      });
+      return data;
+    };
+  }, [billingConfig?.currency, isMultiOrg]);
+
+  const handleExportCSV = () => {
+    if (!billingRows || billingRows.length === 0) return;
+    exportToCSV(buildExportRows(billingRows, selectedLOC, billingTotals), `billing-details-${new Date().toISOString().split('T')[0]}.csv`);
   };
 
   const handleExportExcel = () => {
     if (!billingRows || billingRows.length === 0) return;
-    const curr = billingConfig?.currency ?? 'USD';
-    const sym = getCurrencySymbol(curr);
-    const exportData = billingRows.map((row) => ({
-      'Cost center': row.costCenterCode ? `${row.costCenterName} (${row.costCenterCode})` : row.costCenterName,
-      Project: row.projectName,
-      'Allocation %': row.allocationPercentage,
-      'Total LOC': row.ncloc,
-      'Allocated LOC': row.allocatedLoc,
-      [`Cost rate-based (${sym})`]: row.cost,
-      [`License share (${sym})`]: row.costContractShare,
-    }));
-    exportData.push({
-      'Cost center': 'Total',
-      Project: 'All projects',
-      'Allocation %': '',
-      'Total LOC': selectedLOC,
-      'Allocated LOC': billingTotals.allocatedLoc,
-      [`Cost rate-based (${sym})`]: billingTotals.cost,
-      [`License share (${sym})`]: billingTotals.costContractShare,
-    });
-    exportToExcel(exportData, `billing-details-${new Date().toISOString().split('T')[0]}.xlsx`, 'Billing Details');
+    exportToExcel(buildExportRows(billingRows, selectedLOC, billingTotals), `billing-details-${new Date().toISOString().split('T')[0]}.xlsx`, 'Billing Details');
   };
 
   const handleExportPDF = () => {
     if (!billingRows || billingRows.length === 0) return;
-    const curr = billingConfig?.currency ?? 'USD';
-    const sym = getCurrencySymbol(curr);
-    const exportData = billingRows.map((row) => ({
-      'Cost center': row.costCenterCode ? `${row.costCenterName} (${row.costCenterCode})` : row.costCenterName,
-      Project: row.projectName,
-      'Allocation %': row.allocationPercentage,
-      'Total LOC': row.ncloc,
-      'Allocated LOC': row.allocatedLoc,
-      [`Cost rate-based (${sym})`]: row.cost,
-      [`License share (${sym})`]: row.costContractShare,
-    }));
-    exportData.push({
-      'Cost center': 'Total',
-      Project: 'All projects',
-      'Allocation %': '',
-      'Total LOC': selectedLOC,
-      'Allocated LOC': billingTotals.allocatedLoc,
-      [`Cost rate-based (${sym})`]: billingTotals.cost,
-      [`License share (${sym})`]: billingTotals.costContractShare,
-    });
-    exportToPDF(exportData, `billing-report-${new Date().toISOString().split('T')[0]}.pdf`);
+    exportToPDF(buildExportRows(billingRows, selectedLOC, billingTotals), `billing-report-${new Date().toISOString().split('T')[0]}.pdf`);
   };
-
-  // Calculate stats for selected projects (exclude 0 LOC = no scan)
-  const selectedLOC = projectsData.reduce((sum, p) => sum + p.ncloc, 0);
   const selectedCount = selectedProjects.length;
   const projectsWithLoc = useMemo(
     () => projectsData.filter((p) => p.ncloc > 0),
@@ -441,14 +487,142 @@ export default function BillingDashboard() {
               </button>
             </div>
           </div>
-          <OrganizationSelector onOrganizationChange={setSelectedOrganization} />
+          {hasMultipleOrgs ? (
+            <div className="space-y-3">
+              <div className="flex items-center gap-4">
+                <span className="text-xs font-bold text-sonar-purple dark:text-white uppercase tracking-wide">View</span>
+                <div className="flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
+                  {(['single', 'multi', 'all'] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => setViewMode(mode)}
+                      className={`px-4 py-2 text-sm font-medium font-body transition-colors ${
+                        viewMode === mode
+                          ? 'bg-sonar-blue text-white'
+                          : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      {mode === 'single' && 'Single organization'}
+                      {mode === 'multi' && 'Multiple organizations'}
+                      {mode === 'all' && 'All organizations'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {viewMode === 'single' && (
+                <OrganizationSelector onOrganizationChange={setSelectedOrganization} />
+              )}
+              {viewMode === 'multi' && (
+                <OrganizationSelector
+                  multiSelect
+                  selectedOrganizations={selectedOrganizations}
+                  onOrganizationsChange={handleOrganizationsChange}
+                />
+              )}
+              {viewMode === 'all' && (
+                <div className="flex items-center gap-3 px-4 py-2 bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600">
+                  <span className="text-sm font-medium text-gray-600 dark:text-slate-300">Showing all organizations in enterprise</span>
+                </div>
+              )}
+            </div>
+          ) : (
+            <OrganizationSelector onOrganizationChange={setSelectedOrganization} />
+          )}
         </div>
       </header>
 
+      <LoadProgressBar />
       <CacheIndicator />
 
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0 space-y-6">
+          {viewMode === 'all' ? (
+            /* All organizations summary view */
+            <div className="space-y-6">
+              <h2 className="text-2xl font-bold text-sonar-purple dark:text-white">All organizations</h2>
+              <p className="text-gray-600 dark:text-slate-300 font-body">
+                Summary of billing and usage per organization. Open one to view its dashboard or add several to compare.
+              </p>
+              <p className="text-sm text-gray-500 dark:text-slate-400 font-body">
+                <span className="inline-block px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200 font-medium mr-1">Reserved</span> = per-org;
+                <span className="inline-block px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 font-medium ml-1 mr-1">Pooled</span> = shared (counted once in enterprise total).
+              </p>
+              {allOrgsBilling.isLoading ? (
+                <div className="flex items-center justify-center gap-3 py-12 bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-600">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sonar-blue" />
+                  <span className="text-gray-600 dark:text-slate-300">Loading organization data...</span>
+                </div>
+              ) : allOrgsBilling.byOrg.length === 0 ? (
+                <div className="py-12 bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-600 text-center text-gray-600 dark:text-slate-300">
+                  No organizations found.
+                </div>
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {allOrgsBilling.byOrg.map((org) => (
+                    <div
+                      key={org.key}
+                      className="bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-gray-200 dark:border-slate-600 p-5 hover:border-sonar-blue/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-2 mb-3 flex-wrap">
+                        <h3 className="text-lg font-bold text-sonar-purple dark:text-white truncate min-w-0" title={org.name}>{org.name}</h3>
+                        {org.mode === 'unreserved' ? (
+                          <span className="shrink-0 px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200" title="Pooled LOC — counted once in enterprise total">Pooled</span>
+                        ) : org.mode === 'absoluteReserved' ? (
+                          <span className="shrink-0 px-2 py-0.5 text-xs font-medium rounded-full bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200" title="Reserved LOC — counted per organization in total">Reserved</span>
+                        ) : null}
+                      </div>
+                      <dl className="space-y-1 text-sm">
+                        <div className="flex justify-between">
+                          <dt className="text-gray-600 dark:text-slate-400">Consumed</dt>
+                          <dd className="font-medium tabular-nums text-gray-900 dark:text-white">{(org.consumed ?? 0).toLocaleString()} LOC</dd>
+                        </div>
+                        <div className="flex justify-between">
+                          <dt className="text-gray-600 dark:text-slate-400">Limit</dt>
+                          <dd className="font-medium tabular-nums text-gray-900 dark:text-white">{(org.limit ?? 0).toLocaleString()} LOC</dd>
+                        </div>
+                        <div className="flex justify-between">
+                          <dt className="text-gray-600 dark:text-slate-400">Usage</dt>
+                          <dd className="font-medium tabular-nums text-emerald-600 dark:text-emerald-400">{org.usagePercent.toFixed(1)}%</dd>
+                        </div>
+                        <div className="flex justify-between">
+                          <dt className="text-gray-600 dark:text-slate-400">Projects</dt>
+                          <dd className="font-medium tabular-nums text-gray-900 dark:text-white">{org.privateProjectCount} private / {org.publicProjectCount} public</dd>
+                        </div>
+                      </dl>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setViewMode('single');
+                            setSelectedOrganization({ key: org.key, name: org.name, uuid: org.uuid });
+                            saveSetting('selectedOrganization', org.key);
+                          }}
+                          className="btn-sonar-primary px-3 py-1.5 text-sm rounded-lg"
+                        >
+                          Open
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setViewMode('multi');
+                            const next = [...selectedOrganizations];
+                            if (!next.some((o) => o.key === org.key)) next.push({ key: org.key, name: org.name, uuid: org.uuid });
+                            setSelectedOrganizations(next);
+                            handleOrganizationsChange(next);
+                          }}
+                          className="btn-sonar-accent px-3 py-1.5 text-sm rounded-lg"
+                        >
+                          Add to compare
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
               {/* Always-Visible Billing Metrics */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     {/* Projects Assigned - donut with count in center */}
@@ -598,6 +772,11 @@ export default function BillingDashboard() {
                                 <span className="font-semibold text-gray-700 dark:text-slate-100">{actualConsumed.toLocaleString()} LOC used</span>
                                 <span className="mx-1">of</span>
                                 <span className="font-semibold text-emerald-600 dark:text-emerald-300">{actualLimit.toLocaleString()} LOC available</span>
+                                {singleMode && !isMultiOrg && (
+                                  <span className="text-gray-500 dark:text-slate-400 font-normal">
+                                    {' '}({singleMode === 'absoluteReserved' ? 'Reserved' : 'Pooled'})
+                                  </span>
+                                )}
                               </>
                             )}
                           </p>
@@ -650,9 +829,72 @@ export default function BillingDashboard() {
                     </div>
                   </div>
 
+                  {isMultiOrg && selectedOrganizations.length >= 2 && (() => {
+                    const results = multiBilling.orgResults ?? multiBilling.byOrg.map((o) => ({ org: { key: o.key, name: o.name, uuid: o.uuid }, data: o, isPending: false, error: null }));
+                    return (
+                    <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-gray-200 dark:border-slate-600 overflow-hidden">
+                      <div className="px-4 py-3 border-b border-gray-200 dark:border-slate-600">
+                        <h3 className="text-lg font-bold text-sonar-purple dark:text-white">
+                          Per-organization breakdown
+                        </h3>
+                        <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
+                          Reserved = per-org usage; Pooled = shared, counted once in total above.
+                        </p>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead className="bg-gray-50 dark:bg-gray-700">
+                            <tr>
+                              <th className="px-4 py-2 text-left text-gray-700 dark:text-slate-200 font-medium">Organization</th>
+                              <th className="px-4 py-2 text-left text-gray-700 dark:text-slate-200 font-medium">Billing</th>
+                              <th className="px-4 py-2 text-right text-gray-700 dark:text-slate-200 font-medium">Consumed (LOC)</th>
+                              <th className="px-4 py-2 text-right text-gray-700 dark:text-slate-200 font-medium">Limit (LOC)</th>
+                              <th className="px-4 py-2 text-right text-gray-700 dark:text-slate-200 font-medium">Usage %</th>
+                              <th className="px-4 py-2 text-right text-gray-700 dark:text-slate-200 font-medium">Private / Public</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-200 dark:divide-slate-600">
+                            {results.map(({ org, data, isPending, error: rowError }) => {
+                              const counts = perOrgProjectCounts.get(org.key);
+                              const privateCount = counts?.private ?? data?.privateProjectCount ?? 0;
+                              const publicCount = counts?.public ?? data?.publicProjectCount ?? 0;
+                              return (
+                                <tr key={org.key} className="hover:bg-gray-50 dark:hover:bg-slate-700/50">
+                                  <td className="px-4 py-2 font-medium text-gray-900 dark:text-white">{org.name}</td>
+                                  <td className="px-4 py-2">
+                                    {rowError || isPending ? '—' : data?.mode === 'unreserved' ? (
+                                      <span className="inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200" title="Pooled — counted once in total">Pooled</span>
+                                    ) : data?.mode === 'absoluteReserved' ? (
+                                      <span className="inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200" title="Reserved — counted per org in total">Reserved</span>
+                                    ) : (
+                                      '—'
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-2 text-right tabular-nums text-gray-700 dark:text-slate-300">
+                                    {rowError ? '—' : isPending ? '…' : (data?.consumed ?? 0).toLocaleString()}
+                                  </td>
+                                  <td className="px-4 py-2 text-right tabular-nums text-gray-700 dark:text-slate-300">
+                                    {rowError ? '—' : isPending ? '…' : (data?.limit ?? 0).toLocaleString()}
+                                  </td>
+                                  <td className="px-4 py-2 text-right tabular-nums text-gray-700 dark:text-slate-300">
+                                    {rowError ? '—' : isPending ? '…' : (data?.usagePercent ?? 0).toFixed(1)}%
+                                  </td>
+                                  <td className="px-4 py-2 text-right tabular-nums text-gray-600 dark:text-slate-400">
+                                    {rowError ? '—' : isPending ? '…' : `${privateCount} / ${publicCount}`}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ); })()}
+
                   <CostCenters
-                    key={selectedOrganization?.key ?? 'no-org'}
-                    organization={selectedOrganization?.key}
+                    key={isMultiOrg ? `multi-${selectedOrganizations.map((o) => o.key).join(',')}` : (selectedOrganization?.key ?? 'no-org')}
+                    organization={isMultiOrg ? undefined : selectedOrganization?.key}
+                    projectsWithOrg={isMultiOrg ? mergedProjectsResult.projects : undefined}
                     onProjectsSelected={setSelectedProjects}
                   />
 
@@ -701,6 +943,7 @@ export default function BillingDashboard() {
                           data={billingRows}
                           currency={billingConfig?.currency ?? 'USD'}
                           totals={billingTotals}
+                          showOrganizationColumn={isMultiOrg}
                         />
 
               {selectedProjects.length === 0 && projectKeysFromAssignments.length === 0 && (
@@ -719,8 +962,21 @@ export default function BillingDashboard() {
                 </div>
               )}
 
+          {viewMode === 'multi' && selectedOrganizations.length < 2 && (
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-4">
+              <p className="text-amber-800 dark:text-amber-200 font-body">
+                Select at least 2 organizations above to see the aggregate view and assign projects across them.
+              </p>
+            </div>
+          )}
+
           {/* Config: cost calculator */}
           <div className="space-y-6">
+            {isMultiOrg && (
+              <p className="text-sm text-gray-600 dark:text-slate-400 font-body">
+                Plan allowance below is aggregated across {selectedOrganizations.length} organization{selectedOrganizations.length !== 1 ? 's' : ''}.
+              </p>
+            )}
             <CostCalculator planAllowanceLOC={limit} />
           </div>
 
@@ -751,6 +1007,8 @@ export default function BillingDashboard() {
               </button>
             </div>
           </div>
+            </>
+          )}
         </div>
       </main>
     </div>
