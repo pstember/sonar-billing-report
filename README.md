@@ -8,6 +8,9 @@ A self-contained web application for visualizing SonarCloud metrics focused on b
 
 - **No Configuration Required**: Enter your SonarCloud token in the UI - no `.env` files needed
 - **Comprehensive Billing Dashboard**: View costs, trends, and breakdowns by organization, project, and tags
+- **Cost Center Management**: Create teams/departments, assign projects, track code ownership, and allocate costs
+- **Multiple Perspectives**: Single organisation, multiple organisation comparison, or enterprise-wide overview
+- **Smart Selection**: Build comparison sets with visual selection state management
 - **Multiple Deployment Options**: Run as Node.js app or standalone executable; deploy to Netlify, Vercel, or other static hosts
 - **Built-in API Proxy**: Handles SonarCloud API authentication and CORS
 - **Data Export**: Export reports to Excel, CSV, or PDF

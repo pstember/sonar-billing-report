@@ -104,36 +104,44 @@ Or use the utility class:
 </button>
 ```
 
-**Accent Button** (Sonar Teal – recommended for secondary CTAs: Add cost center, Generate PDF, Edit config):
-Pairs with the blue primary and fits the overall palette without the strong purple.
-```jsx
-<button className="btn-sonar-accent px-4 py-2 rounded-lg">
-  Add cost center
-</button>
-```
-
-**Outline Button** (Blue border + text – Cancel, Clear, low-emphasis actions):
+**Outline Button** (Blue border + text – Cancel, Clear, neutral/completed actions):
 ```jsx
 <button className="btn-sonar-outline px-4 py-2 rounded-lg">
   Cancel
 </button>
 ```
 
-**Danger Button** (Destructive: Logout, Delete, Remove – semantic red, same shape as Sonar buttons):
+**Danger Button** (Destructive: Logout, Delete, Remove – semantic red):
 ```jsx
 <button className="btn-sonar-danger px-4 py-2 rounded-lg">
   Logout
 </button>
 ```
 
+**Selection Buttons** (Context-dependent styling for selection state):
+```jsx
+{/* Unselected: Green outline (call to action) */}
+<button className="px-3 py-1.5 text-xs font-medium rounded-lg border-2 border-green-600 text-green-600 hover:bg-green-50">
+  + Select
+</button>
+
+{/* Selected: Gray outline (de-emphasized/completed) */}
+<button className="px-3 py-1.5 text-xs font-medium rounded-lg border-2 border-gray-300 text-gray-600 bg-gray-50">
+  ✓ Selected
+</button>
+```
+
 **Summary – which button to use**
 | Role | Class | Example |
 |------|--------|--------|
-| Primary CTA (Save, Export, Connect, Select all) | `btn-sonar-primary` | Export to CSV, Save, Connect to SonarCloud |
-| Secondary CTA (Add, Generate, Edit config) | `btn-sonar-accent` | Add cost center, Generate PDF, Edit Configuration |
-| Neutral (Cancel, Clear) | `btn-sonar-outline` | Cancel, Clear |
-| Destructive (Logout, Delete, Remove) | `btn-sonar-danger` | Logout, Delete, Remove add-on |
+| Primary CTA (All actions: Save, Export, Add, Open) | `btn-sonar-primary` | Export to CSV, Save, Add Cost Center, Open, Continue to Dashboard |
+| Neutral/Cancel (Cancel, Clear) | `btn-sonar-outline` | Cancel, Clear |
+| Selection Available (Add to selection) | Green outline + text | + Select (in Enterprise Overview) |
+| Selection Active (Remove from selection) | Gray outline + background | ✓ Selected (de-emphasized) |
+| Destructive (Logout, Delete, Remove) | `btn-sonar-danger` | Logout, Delete, Remove |
 | Text links (Edit) | `text-sonar-blue hover:text-sonar-blue-secondary` | Edit cost center |
+
+**Note on button consistency:** As of March 2026, all action buttons use `btn-sonar-primary` (blue) for consistency. The previous `btn-sonar-accent` (teal) is no longer used. Selection state buttons use semantic green (available) and gray (selected) for intuitive status indication.
 
 ### Inputs
 
@@ -366,14 +374,87 @@ getComputedStyle(document.documentElement).getPropertyValue('--color-sonar-purpl
 
 Expected: `" #290042"` (with a leading space) or `"#290042"`. If the result is an empty string, the variable is not set on `:root`.
 
+## Shared Components
+
+### LOCTooltip
+Reusable tooltip component that explains "LOC = Lines of Code" with a hover tooltip.
+
+**Location:** `src/components/Shared/LOCTooltip.tsx`
+
+**Usage:**
+```jsx
+import { LOCTooltip } from '../Shared/LOCTooltip';
+
+<div className="flex items-center gap-1">
+  <LOCTooltip />
+</div>
+```
+
+Displays "LOC" with a "?" icon. Hovering shows: "LOC = Lines of Code - Non-comment, non-blank lines in your private projects"
+
+### HelpIcon
+Contextual help icon with hover tooltip for inline help text.
+
+**Location:** `src/components/Shared/HelpIcon.tsx`
+
+**Usage:**
+```jsx
+import { HelpIcon } from '../Shared/HelpIcon';
+
+<div className="flex items-center gap-1">
+  <span>Reserved</span>
+  <HelpIcon content="In reserved mode, each organisation has its own separate LOC limit." />
+</div>
+```
+
+Displays a small "?" button with custom tooltip content on hover.
+
+### Toast
+Toast notification component for user feedback (prepared for future use).
+
+**Location:** `src/components/Shared/Toast.tsx`
+
+**Usage:**
+```jsx
+import { Toast } from '../Shared/Toast';
+
+<Toast
+  message="Cost center created successfully!"
+  variant="success"
+  onClose={() => setShowToast(false)}
+/>
+```
+
+Variants: `success`, `info`, `warning`, `error`
+
+### useKeyboardShortcuts
+React hook for keyboard shortcut handling (prepared for future use).
+
+**Location:** `src/hooks/useKeyboardShortcuts.ts`
+
+**Usage:**
+```jsx
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
+
+useKeyboardShortcuts([
+  { key: '1', ctrlOrCmd: true, action: () => applyViewMode('single') },
+  { key: '2', ctrlOrCmd: true, action: () => applyViewMode('multi') },
+  { key: '3', ctrlOrCmd: true, action: () => applyViewMode('all') },
+]);
+```
+
+Supports Cmd (Mac) / Ctrl (Windows/Linux) modifier keys.
+
 ## Future Improvements
 
+- [x] Implement branded tooltips (LOCTooltip, HelpIcon)
+- [x] Button consistency (all actions use btn-sonar-primary)
 - [ ] Add Sonar logo to header
 - [ ] Implement dark mode with Sonar brand colors
 - [ ] Add more chart color variants from brand palette
 - [ ] Create branded loading states
 - [ ] Add branded error/success states
-- [ ] Implement branded tooltips
+- [ ] Keyboard shortcuts (hook prepared, implementation pending)
 
 ## Resources
 
