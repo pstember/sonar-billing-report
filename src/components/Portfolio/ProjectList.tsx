@@ -98,7 +98,7 @@ export default function ProjectList({
         project.tags.forEach(tag => tagSet.add(tag));
       }
     });
-    return Array.from(tagSet).sort();
+    return Array.from(tagSet).sort((a, b) => a.localeCompare(b));
   }, [projects]);
 
   // Fetch LOC only for projects not in preferredNclocMap (avoids duplicate request when dashboard already has full data)
@@ -132,7 +132,7 @@ export default function ProjectList({
         const nclocMeasure = response.component.measures?.find(m => m.metric === 'ncloc');
         return {
           key: project.key,
-          ncloc: nclocMeasure ? parseInt(nclocMeasure.value ?? '0') : 0,
+          ncloc: nclocMeasure ? Number.parseInt(nclocMeasure.value ?? '0', 10) : 0,
         };
       },
       enabled: !!project.key,

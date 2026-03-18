@@ -21,8 +21,8 @@ export function parseLanguageDistribution(value: string): LanguageDistribution {
   for (const pair of pairs) {
     const [language, locStr] = pair.split('=');
     if (language && locStr) {
-      const loc = parseInt(locStr, 10);
-      if (!isNaN(loc)) {
+      const loc = Number.parseInt(locStr, 10);
+      if (!Number.isNaN(loc)) {
         distribution[language.trim()] = loc;
       }
     }

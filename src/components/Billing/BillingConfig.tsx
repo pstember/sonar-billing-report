@@ -176,7 +176,7 @@ export default function BillingConfig({ onConfigChange }: BillingConfigProps) {
           <input
             type="number"
             value={config.locLimit}
-            onChange={(e) => setConfig(prev => ({ ...prev, locLimit: parseInt(e.target.value) || 0 }))}
+            onChange={(e) => setConfig(prev => ({ ...prev, locLimit: Number.parseInt(e.target.value, 10) || 0 }))}
             className="w-full px-4 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-sonar-blue focus:border-sonar-blue dark:bg-gray-700 dark:text-white"
             placeholder="e.g., 100000"
           />

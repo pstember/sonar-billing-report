@@ -66,8 +66,13 @@ class SonarCloudService {
       });
 
       if (!response.ok) {
-        const errorData = (await response.json()) as SonarCloudError;
-        const errorMessage = errorData.errors?.[0]?.msg ?? `HTTP ${response.status}: ${response.statusText}`;
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        try {
+          const errorData = (await response.json()) as SonarCloudError;
+          errorMessage = errorData.errors?.[0]?.msg ?? errorMessage;
+        } catch {
+          // Error body may be non-JSON (e.g. HTML); keep status text
+        }
         throw new Error(errorMessage);
       }
 
@@ -76,7 +81,7 @@ class SonarCloudService {
       if (error instanceof Error) {
         throw error;
       }
-      throw new Error('An unknown error occurred');
+      throw new Error('An unknown error occurred', { cause: error });
     }
   }
 
@@ -109,8 +114,13 @@ class SonarCloudService {
       });
 
       if (!response.ok) {
-        const errorData = (await response.json()) as SonarCloudError;
-        const errorMessage = errorData.errors?.[0]?.msg ?? `HTTP ${response.status}: ${response.statusText}`;
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        try {
+          const errorData = (await response.json()) as SonarCloudError;
+          errorMessage = errorData.errors?.[0]?.msg ?? errorMessage;
+        } catch {
+          // Error body may be non-JSON (e.g. HTML); keep status text
+        }
         throw new Error(errorMessage);
       }
 
@@ -119,7 +129,7 @@ class SonarCloudService {
       if (error instanceof Error) {
         throw error;
       }
-      throw new Error('An unknown error occurred');
+      throw new Error('An unknown error occurred', { cause: error });
     }
   }
 
