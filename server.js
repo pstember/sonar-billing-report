@@ -4,6 +4,7 @@
  */
 
 import express from 'express';
+import compression from 'compression';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -16,6 +17,9 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const SONARCLOUD_API = 'https://sonarcloud.io';
 const SONARCLOUD_BILLING_API = 'https://api.sonarcloud.io';
+
+// Compress responses (gzip) for API and static assets
+app.use(compression());
 
 // Add CORS middleware for all routes
 app.use((req, res, next) => {

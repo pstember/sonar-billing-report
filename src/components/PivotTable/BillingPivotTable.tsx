@@ -1,7 +1,6 @@
 /**
  * Billing Details Table (AG-Grid)
  *
- * How it's built:
  * - Uses ag-grid-react (AgGridReact) with row data and column defs; AG-Grid renders a .ag-root-wrapper
  *   and uses CSS vars (--ag-background-color etc.) from the theme class on the container.
  * - We apply ag-theme-alpine (light) or ag-theme-alpine-dark (dark) so the grid matches the app theme.
@@ -51,6 +50,7 @@ const NO_ROWS_MESSAGE = 'No billing rows. Assign projects to cost centers above.
 
 export default function BillingPivotTable({ data, currency = 'USD', totals, showOrganizationColumn = false }: BillingPivotTableProps) {
   const [dark, setDark] = useState(() => isDark());
+
   useEffect(() => {
     const handler = () => setDark(isDark());
     globalThis.addEventListener('themechange', handler);
@@ -174,22 +174,22 @@ export default function BillingPivotTable({ data, currency = 'USD', totals, show
             minWidth: 600,
           }}
         >
-        <AgGridReact<BillingDetailsRow>
-          key="billing-details-grid"
-          theme="legacy"
-          rowData={rowData}
-          pinnedBottomRowData={pinnedBottomData}
-          columnDefs={columnDefs}
-          defaultColDef={defaultColDef}
-          animateRows={true}
-          overlayNoRowsTemplate={`<span class="ag-overlay-no-rows-center">${NO_ROWS_MESSAGE}</span>`}
-          initialState={{
-            sort: { sortModel: [
-              { colId: 'costCenterName', sort: 'asc' },
-              { colId: 'cost', sort: 'desc' },
-            ] },
-          }}
-        />
+          <AgGridReact<BillingDetailsRow>
+            key="billing-details-grid"
+            theme="legacy"
+            rowData={rowData}
+            pinnedBottomRowData={pinnedBottomData}
+            columnDefs={columnDefs}
+            defaultColDef={defaultColDef}
+            animateRows={true}
+            overlayNoRowsTemplate={`<span class="ag-overlay-no-rows-center">${NO_ROWS_MESSAGE}</span>`}
+            initialState={{
+              sort: { sortModel: [
+                { colId: 'costCenterName', sort: 'asc' },
+                { colId: 'cost', sort: 'desc' },
+              ] },
+            }}
+          />
         </div>
       </div>
     </div>

@@ -1,10 +1,7 @@
 /**
  * Export utilities for charts and data
+ * XLSX and jsPDF are lazy-loaded on first Excel/PDF export to keep the main bundle smaller.
  */
-
-import * as XLSX from 'xlsx';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
 
 /**
  * Export data to CSV
@@ -31,7 +28,8 @@ export function exportToCSV(data: Array<Record<string, any>>, filename: string) 
 /**
  * Export data to Excel
  */
-export function exportToExcel(data: Array<Record<string, any>>, filename: string, sheetName = 'Sheet1') {
+export async function exportToExcel(data: Array<Record<string, any>>, filename: string, sheetName = 'Sheet1') {
+  const XLSX = await import('xlsx');
   const worksheet = XLSX.utils.json_to_sheet(data);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
@@ -49,8 +47,13 @@ export function exportToExcel(data: Array<Record<string, any>>, filename: string
 /**
  * Export data to PDF (billing report table)
  */
-export function exportToPDF(data: Array<Record<string, any>>, filename: string) {
+export async function exportToPDF(data: Array<Record<string, any>>, filename: string) {
   if (!data || data.length === 0) return;
+
+  const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+    import('jspdf'),
+    import('jspdf-autotable'),
+  ]);
 
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
   const headers = Object.keys(data[0] || {});

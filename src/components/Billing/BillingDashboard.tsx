@@ -151,6 +151,11 @@ export default function BillingDashboard() {
     isLoading: isLoadingProjectData,
   } = useProjectsRealData(projectKeysForData);
 
+  const projectNclocMap = useMemo(
+    () => Object.fromEntries(projectsData.map((p) => [p.key, p.ncloc])),
+    [projectsData]
+  );
+
   // LOC trend by cost center: use monthly carry-forward project LOC, then allocate by CC per month
   // Use a reserved key for aggregate total so a cost center named "Total" doesn't overwrite it
   const AGGREGATE_TOTAL_KEY = '__total__';
@@ -434,14 +439,14 @@ export default function BillingDashboard() {
     exportToCSV(buildExportRows(billingRows, selectedLOC, billingTotals), `billing-details-${new Date().toISOString().split('T')[0]}.csv`);
   };
 
-  const handleExportExcel = () => {
+  const handleExportExcel = async () => {
     if (!billingRows || billingRows.length === 0) return;
-    exportToExcel(buildExportRows(billingRows, selectedLOC, billingTotals), `billing-details-${new Date().toISOString().split('T')[0]}.xlsx`, 'Billing Details');
+    await exportToExcel(buildExportRows(billingRows, selectedLOC, billingTotals), `billing-details-${new Date().toISOString().split('T')[0]}.xlsx`, 'Billing Details');
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     if (!billingRows || billingRows.length === 0) return;
-    exportToPDF(buildExportRows(billingRows, selectedLOC, billingTotals), `billing-report-${new Date().toISOString().split('T')[0]}.pdf`);
+    await exportToPDF(buildExportRows(billingRows, selectedLOC, billingTotals), `billing-report-${new Date().toISOString().split('T')[0]}.pdf`);
   };
   const selectedCount = selectedProjects.length;
   const projectsWithLoc = useMemo(
@@ -895,6 +900,7 @@ export default function BillingDashboard() {
                     key={isMultiOrg ? `multi-${selectedOrganizations.map((o) => o.key).join(',')}` : (selectedOrganization?.key ?? 'no-org')}
                     organization={isMultiOrg ? undefined : selectedOrganization?.key}
                     projectsWithOrg={isMultiOrg ? mergedProjectsResult.projects : undefined}
+                    preferredNclocMap={projectNclocMap}
                     onProjectsSelected={setSelectedProjects}
                   />
 

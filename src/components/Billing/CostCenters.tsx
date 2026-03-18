@@ -26,9 +26,11 @@ interface CostCentersProps {
   readonly onProjectsSelected?: (projectKeys: string[]) => void;
   /** When provided (multi-org), use this list instead of useProjects(organization). Organization column is shown. */
   readonly projectsWithOrg?: ProjectWithOrganization[];
+  /** Ncloc for project keys already loaded by parent (e.g. BillingDashboard useProjectsRealData); avoids duplicate projectLOC fetches in ProjectList. */
+  readonly preferredNclocMap?: Record<string, number>;
 }
 
-export default function CostCenters({ organization, onProjectsSelected, projectsWithOrg }: Readonly<CostCentersProps>) {
+export default function CostCenters({ organization, onProjectsSelected, projectsWithOrg, preferredNclocMap }: Readonly<CostCentersProps>) {
   const queryClient = useQueryClient();
   const migrationDone = useRef(false);
 
@@ -95,31 +97,51 @@ export default function CostCenters({ organization, onProjectsSelected, projects
     });
   }, [selectedProjectKeys, projectsWithNcloc, privateProjects]);
 
+  // Only fetch projectLOC for keys we don't already have from preferredNclocMap or projectsWithNcloc
+  const keysWithNcloc = useMemo(() => {
+    const set = new Set<string>();
+    if (preferredNclocMap) Object.keys(preferredNclocMap).forEach((k) => set.add(k));
+    projectsWithNcloc.forEach((p) => set.add(p.key));
+    return set;
+  }, [preferredNclocMap, projectsWithNcloc]);
+
+  const mergedNclocMapForList = useMemo(() => {
+    const map: Record<string, number> = {};
+    if (preferredNclocMap) Object.assign(map, preferredNclocMap);
+    projectsWithNcloc.forEach((p) => { map[p.key] = p.ncloc; });
+    return map;
+  }, [preferredNclocMap, projectsWithNcloc]);
+
   const projectLocQueries = useQueries({
-    queries: selectedProjectKeys.map((key) => ({
-      queryKey: ['projectLOC', key],
-      queryFn: async () => {
-        const auth = await getAuthConfig();
-        if (!auth) return null;
-        const service = new SonarCloudService({
-          baseUrl: auth.baseUrl,
-          token: auth.token,
-          organization: auth.organization,
-          enterpriseKey: auth.enterpriseKey,
-        });
-        const response = await service.getComponentMeasures({
-          component: key,
-          metricKeys: ['ncloc'],
-        });
-        const nclocMeasure = response.component.measures?.find((m) => m.metric === 'ncloc');
-        return { key, ncloc: nclocMeasure ? Number.parseInt(nclocMeasure.value || '0', 10) : 0 };
-      },
-      enabled: !!key,
-    })),
+    queries: selectedProjectKeys
+      .filter((key) => !keysWithNcloc.has(key))
+      .map((key) => ({
+        queryKey: ['projectLOC', key],
+        queryFn: async () => {
+          const auth = await getAuthConfig();
+          if (!auth) return null;
+          const service = new SonarCloudService({
+            baseUrl: auth.baseUrl,
+            token: auth.token,
+            organization: auth.organization,
+            enterpriseKey: auth.enterpriseKey,
+          });
+          const response = await service.getComponentMeasures({
+            component: key,
+            metricKeys: ['ncloc'],
+          });
+          const nclocMeasure = response.component.measures?.find((m) => m.metric === 'ncloc');
+          return { key, ncloc: nclocMeasure ? Number.parseInt(nclocMeasure.value || '0', 10) : 0 };
+        },
+        enabled: !!key,
+      })),
   });
 
   const projectNclocByKey = useMemo(() => {
     const map = new Map<string, number>();
+    if (preferredNclocMap) {
+      Object.entries(preferredNclocMap).forEach(([key, ncloc]) => map.set(key, ncloc));
+    }
     for (const p of projectsForAllocation) {
       if (p.ncloc > 0) map.set(p.key, p.ncloc);
     }
@@ -130,7 +152,7 @@ export default function CostCenters({ organization, onProjectsSelected, projects
       if (!map.has(key)) map.set(key, 0);
     }
     return map;
-  }, [projectsForAllocation, projectLocQueries, selectedProjectKeys]);
+  }, [preferredNclocMap, projectsForAllocation, projectLocQueries, selectedProjectKeys]);
 
   const locSummary = useMemo(() => {
     const byCostCenter = new Map<string, number>();
@@ -303,6 +325,7 @@ export default function CostCenters({ organization, onProjectsSelected, projects
         <ProjectList
           organization={organization}
           projectsWithOrg={projectsWithOrg}
+          preferredNclocMap={mergedNclocMapForList}
           onProjectsSelected={() => {}}
           selectedProjectKeys={selectedProjectKeys}
           costCenters={costCenters}

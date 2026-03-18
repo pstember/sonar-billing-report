@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { QueryClientProvider } from '@tanstack/react-query';
-import { queryClient } from './config/queryClient';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { queryClient, persister } from './config/queryClient';
 import { getAuthConfig } from './services/db';
 import TokenInput from './components/Auth/TokenInput';
 import BillingDashboard from './components/Billing/BillingDashboard';
@@ -37,16 +37,16 @@ function App() {
 
   if (!isAuthenticated) {
     return (
-      <QueryClientProvider client={queryClient}>
+      <PersistQueryClientProvider client={queryClient} persistOptions={{ persister }}>
         <TokenInput onSuccess={() => setIsAuthenticated(true)} />
-      </QueryClientProvider>
+      </PersistQueryClientProvider>
     );
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider client={queryClient} persistOptions={{ persister }}>
       <BillingDashboard />
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   );
 }
 

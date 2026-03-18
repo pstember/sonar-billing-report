@@ -4,6 +4,18 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: (id) => {
+          if (id.includes('node_modules/recharts')) return 'recharts';
+          if (id.includes('node_modules/ag-grid')) return 'ag-grid';
+          if (id.includes('node_modules/xlsx')) return 'xlsx';
+          if (id.includes('node_modules/jspdf')) return 'jspdf';
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     // Proxy API routes to Express server (run "npm run server" in another terminal for full dev)

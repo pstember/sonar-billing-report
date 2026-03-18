@@ -33,6 +33,8 @@ interface ProjectListProps {
   readonly onBulkActionSuccess?: (message: string) => void;
   /** When provided (multi-org), use this list instead of useProjects(organization). Organization column is shown. */
   readonly projectsWithOrg?: ProjectWithOrganization[];
+  /** When provided, LOC for these project keys is taken from this map and no projectLOC request is made for them. */
+  readonly preferredNclocMap?: Record<string, number>;
 }
 
 export default function ProjectList({
@@ -47,6 +49,7 @@ export default function ProjectList({
   onBulkAssign,
   onBulkActionSuccess,
   projectsWithOrg,
+  preferredNclocMap,
 }: ProjectListProps) {
   const { data: projectsDataFromApi, isLoading: projectsLoadingFromApi } = useProjects({
     organization: projectsWithOrg == null ? organization || undefined : undefined,
@@ -98,9 +101,17 @@ export default function ProjectList({
     return Array.from(tagSet).sort();
   }, [projects]);
 
-  // Fetch LOC for all projects
+  // Fetch LOC only for projects not in preferredNclocMap (avoids duplicate request when dashboard already has full data)
+  const projectsNeedingLoc = useMemo(
+    () =>
+      preferredNclocMap
+        ? projects.filter((p) => !(p.key in preferredNclocMap))
+        : projects,
+    [projects, preferredNclocMap]
+  );
+
   const projectMeasuresQueries = useQueries({
-    queries: projects.map((project) => ({
+    queries: projectsNeedingLoc.map((project) => ({
       queryKey: ['projectLOC', project.key],
       queryFn: async () => {
         const auth = await getAuthConfig();
@@ -128,16 +139,19 @@ export default function ProjectList({
     })),
   });
 
-  // Create a map of project key to LOC
+  // Create a map of project key to LOC (preferred map first, then query results)
   const projectLOCMap = useMemo(() => {
     const map = new Map<string, number>();
+    if (preferredNclocMap) {
+      Object.entries(preferredNclocMap).forEach(([key, ncloc]) => map.set(key, ncloc));
+    }
     projectMeasuresQueries.forEach((query) => {
       if (query.data) {
         map.set(query.data.key, query.data.ncloc);
       }
     });
     return map;
-  }, [projectMeasuresQueries]);
+  }, [preferredNclocMap, projectMeasuresQueries]);
 
   // Filter projects by visibility (private only), selected tags, and search query
   const filteredProjects = useMemo(() => {

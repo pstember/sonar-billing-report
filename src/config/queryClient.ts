@@ -4,19 +4,24 @@
  */
 
 import { QueryClient } from '@tanstack/react-query';
+import type { PersistedClient } from '@tanstack/react-query-persist-client';
 import { setCache, getCache } from '../services/db';
+
+const CACHE_KEY = 'react-query-cache';
+const MAX_AGE_MS = 86400000; // 24 hours
 
 /**
  * Custom persister for TanStack Query using IndexedDB
  */
 const persister = {
-  async persistClient(client: unknown) {
-    await setCache('react-query-cache', client, 86400000); // 24 hour TTL
+  async persistClient(client: PersistedClient): Promise<void> {
+    await setCache(CACHE_KEY, client, MAX_AGE_MS);
   },
-  async restoreClient() {
-    return await getCache<unknown>('react-query-cache');
+  async restoreClient(): Promise<PersistedClient | undefined> {
+    const cached = await getCache<PersistedClient>(CACHE_KEY);
+    return cached ?? undefined;
   },
-  async removeClient() {
+  async removeClient(): Promise<void> {
     // Cache cleanup handled by db.clearCache()
   },
 };
