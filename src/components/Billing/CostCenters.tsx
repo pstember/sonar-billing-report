@@ -28,9 +28,11 @@ interface CostCentersProps {
   readonly projectsWithOrg?: ProjectWithOrganization[];
   /** Ncloc for project keys already loaded by parent (e.g. BillingDashboard useProjectsRealData); avoids duplicate projectLOC fetches in ProjectList. */
   readonly preferredNclocMap?: Record<string, number>;
+  /** When provided, only projects in this set are considered "in scope" for the current org selection. Used to filter the projects-in-scope list and recap table. */
+  readonly projectKeysInSelectedOrgs?: string[];
 }
 
-export default function CostCenters({ organization, onProjectsSelected, projectsWithOrg, preferredNclocMap }: Readonly<CostCentersProps>) {
+export default function CostCenters({ organization, onProjectsSelected, projectsWithOrg, preferredNclocMap, projectKeysInSelectedOrgs }: Readonly<CostCentersProps>) {
   const queryClient = useQueryClient();
   const migrationDone = useRef(false);
 
@@ -45,6 +47,22 @@ export default function CostCenters({ organization, onProjectsSelected, projects
   const selectedProjectKeys = useMemo(
     () => [...new Set(projectOnlyAssignments.map((a) => a.projectKey).filter(Boolean))] as string[],
     [projectOnlyAssignments]
+  );
+
+  // When org scope is provided, only show assignments for projects in selected org(s) in "Projects in scope" and recap
+  const inScopeSet = useMemo(
+    () => (projectKeysInSelectedOrgs != null && projectKeysInSelectedOrgs.length > 0
+      ? new Set(projectKeysInSelectedOrgs)
+      : null),
+    [projectKeysInSelectedOrgs]
+  );
+  const projectOnlyAssignmentsInScope = useMemo(
+    () => (inScopeSet != null ? projectOnlyAssignments.filter((a) => a.projectKey && inScopeSet.has(a.projectKey)) : projectOnlyAssignments),
+    [projectOnlyAssignments, inScopeSet]
+  );
+  const selectedProjectKeysInScope = useMemo(
+    () => (inScopeSet != null ? selectedProjectKeys.filter((k) => inScopeSet.has(k)) : selectedProjectKeys),
+    [selectedProjectKeys, inScopeSet]
   );
 
   useEffect(() => {
@@ -155,11 +173,12 @@ export default function CostCenters({ organization, onProjectsSelected, projects
   }, [preferredNclocMap, projectsForAllocation, projectLocQueries, selectedProjectKeys]);
 
   const locSummary = useMemo(() => {
+    const assignmentsForLoc = projectOnlyAssignmentsInScope;
     const byCostCenter = new Map<string, number>();
     for (const cc of costCenters) {
       byCostCenter.set(cc.id, 0);
     }
-    for (const a of projectOnlyAssignments) {
+    for (const a of assignmentsForLoc) {
       if (!a.costCenterId || !a.projectKey) continue;
       const ncloc = projectNclocByKey.get(a.projectKey) ?? 0;
       const pct = Math.min(100, Math.max(0, a.allocationPercentage ?? 0));
@@ -173,7 +192,7 @@ export default function CostCenters({ organization, onProjectsSelected, projects
       byAssignment: new Map<string, number>(),
       byCostCenter,
     };
-  }, [costCenters, projectOnlyAssignments, projectNclocByKey]);
+  }, [costCenters, projectOnlyAssignmentsInScope, projectNclocByKey]);
 
   const [showAddCC, setShowAddCC] = useState(false);
   const [newCC, setNewCC] = useState({ name: '', code: '' });
@@ -327,11 +346,11 @@ export default function CostCenters({ organization, onProjectsSelected, projects
           projectsWithOrg={projectsWithOrg}
           preferredNclocMap={mergedNclocMapForList}
           onProjectsSelected={() => { /* no-op */ }}
-          selectedProjectKeys={selectedProjectKeys}
+          selectedProjectKeys={selectedProjectKeysInScope}
           costCenters={costCenters}
           assignments={allAssignments}
           onSaveProjectAssignment={(projectKey, costCenterId, allocationPercentage) => void handleSaveProjectAssignment(projectKey, costCenterId, allocationPercentage)}
-          onClearProjectAssignment={(a) => void handleClearProjectAssignment(a)}
+          onClearProjectAssignment={(projectKey, costCenterId) => void handleClearProjectAssignment(projectKey, costCenterId)}
           onBulkAssign={(a, b, c) => void handleBulkAssign(a, b, c)}
           onBulkActionSuccess={setBulkSuccessMessage}
         />
@@ -398,7 +417,7 @@ export default function CostCenters({ organization, onProjectsSelected, projects
               <tbody>
                 {costCenters.map((cc) => {
                   const totalLoc = Math.round(locSummary.byCostCenter.get(cc.id) ?? 0);
-                  const ccProjectAssignments = projectOnlyAssignments.filter((a) => a.costCenterId === cc.id);
+                  const ccProjectAssignments = projectOnlyAssignmentsInScope.filter((a) => a.costCenterId === cc.id);
                   const projectNames = ccProjectAssignments.map((a) => {
                     const proj = privateProjects.find((p) => p.key === a.projectKey) ?? projectsWithNcloc.find((p) => p.key === a.projectKey);
                     return proj?.name ?? a.projectKey;

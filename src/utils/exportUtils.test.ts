@@ -121,8 +121,13 @@ describe('exportToExcel', () => {
 const jspdfMocks = vi.hoisted(() => ({
   doc: {
     setFontSize: vi.fn(),
+    setTextColor: vi.fn(),
+    setFont: vi.fn(),
     text: vi.fn(),
     save: vi.fn(),
+    getNumberOfPages: vi.fn(() => 1),
+    setPage: vi.fn(),
+    internal: { pageSize: { getHeight: () => 297 } },
   },
   jsPDF: vi.fn(),
   autoTable: vi.fn(),
@@ -151,6 +156,24 @@ describe('exportToPDF', () => {
       })
     );
     expect(jspdfMocks.doc.save).toHaveBeenCalledWith('report.pdf');
+  });
+
+  it('renders last row as table footer with distinct styling when multiple rows', async () => {
+    const data = [
+      { name: 'P1', ncloc: 100 },
+      { name: 'Total', ncloc: 100 },
+    ];
+    await exportToPDF(data, 'report.pdf');
+
+    expect(jspdfMocks.autoTable).toHaveBeenCalledWith(
+      jspdfMocks.doc,
+      expect.objectContaining({
+        head: [['name', 'ncloc']],
+        body: [['P1', '100']],
+        foot: [['Total', '100']],
+        footStyles: expect.objectContaining({ fontStyle: 'bold' }),
+      })
+    );
   });
 
   it('does nothing when data is empty', async () => {

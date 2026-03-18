@@ -1,10 +1,9 @@
 /**
  * Progress bar for dashboard data loading. Shows completed/total API calls
- * and a nested list of pending/active calls that update dynamically.
- * Sub-calls are collapsed by default and can be toggled per item.
+ * and a nested list of pending/active calls. Category sections auto-collapse when all their requests are done.
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useDashboardLoadProgress } from '../../hooks/useDashboardLoadProgress';
 import type { LoadProgressCategory, LoadProgressItem } from '../../hooks/useDashboardLoadProgress';
 
@@ -63,10 +62,26 @@ function ItemWithSubCalls({ item, itemKey }: { readonly item: LoadProgressItem; 
   );
 }
 
-function Group({ category, items }: { readonly category: LoadProgressCategory; readonly items: LoadProgressItem[] }) {
+function isItemFullyComplete(item: LoadProgressItem): boolean {
+  return (item.status === 'success' || item.status === 'error') && item.fetchStatus !== 'fetching';
+}
+
+function Group({
+  category,
+  items,
+}: {
+  readonly category: LoadProgressCategory;
+  readonly items: LoadProgressItem[];
+}) {
   const [expanded, setExpanded] = useState(true);
   const completedInCategory = items.filter((i) => i.status === 'success' || i.status === 'error').length;
   const totalInCategory = items.length;
+  const allCompleted = items.length > 0 && items.every(isItemFullyComplete);
+
+  useEffect(() => {
+    if (allCompleted) setExpanded(false);
+  }, [allCompleted]);
+
   const subtotalLabel = `${completedInCategory} / ${totalInCategory}`;
 
   return (
@@ -99,9 +114,8 @@ function Group({ category, items }: { readonly category: LoadProgressCategory; r
 }
 
 export default function LoadProgressBar() {
-  const { completed, total, percent, isLoading, items, fetching } = useDashboardLoadProgress();
-
-  if (total === 0 || !isLoading) return null;
+  const { completed, total, percent, isComplete, items, fetching } = useDashboardLoadProgress();
+  if (total === 0 || isComplete) return null;
 
   const byCategory: Record<LoadProgressCategory, LoadProgressItem[]> = { enterprise: [], billing: [], projects: [], other: [] };
   for (const item of items) byCategory[item.category].push(item);
@@ -115,7 +129,7 @@ export default function LoadProgressBar() {
             value={percent}
             max={100}
             className="sr-only"
-            aria-label={`Loading dashboard data: ${completed} of ${total} API requests complete (multiple per project)`}
+            aria-label={`Dashboard data: ${completed} of ${total} requests`}
           />
           <div className="flex-1 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
             <div
@@ -133,7 +147,7 @@ export default function LoadProgressBar() {
           </span>
         </div>
         <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
-          Loading data… Only the “fetching” count are actual network requests; the rest are served from cache. Each project uses 3 queries (details, history, LOC).
+          Only the &quot;fetching&quot; count are actual network requests; the rest are from cache.
         </p>
         {items.length > 0 && (
           <ul className="mt-2 space-y-0 border-t border-gray-100 dark:border-slate-700 pt-2">

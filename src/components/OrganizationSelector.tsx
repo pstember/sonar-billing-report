@@ -27,7 +27,8 @@ type OrganizationSelectorProps = OrganizationSelectorPropsSingle | OrganizationS
 
 export default function OrganizationSelector(props: OrganizationSelectorProps) {
   const { multiSelect = false } = props;
-  const { data: organizations, isLoading, error } = useEnterpriseOrganizations();
+  const { data, isLoading, error } = useEnterpriseOrganizations();
+  const organizations = data?.organizations ?? [];
   const [selectedOrg, setSelectedOrg] = useState<string>('');
   const [selectedKeysMulti, setSelectedKeysMulti] = useState<Set<string>>(new Set());
 

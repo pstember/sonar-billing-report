@@ -5,6 +5,7 @@ import {
   getLanguagePercentages,
   sortLanguagesByLOC,
   formatLargeNumber,
+  formatCompactLoc,
   formatNumberWithCommas,
   calculatePercentageChange,
   formatPercentage,
@@ -99,6 +100,38 @@ describe('formatLargeNumber', () => {
   it('returns string of number below 1000', () => {
     expect(formatLargeNumber(999)).toBe('999');
     expect(formatLargeNumber(0)).toBe('0');
+  });
+});
+
+describe('formatCompactLoc', () => {
+  it('formats thousands with k', () => {
+    expect(formatCompactLoc(1000)).toBe('1k');
+    expect(formatCompactLoc(223688)).toBe('223.7k');
+    expect(formatCompactLoc(999)).toBe('999');
+  });
+
+  it('formats millions with m', () => {
+    expect(formatCompactLoc(1000000)).toBe('1m');
+    expect(formatCompactLoc(1500000)).toBe('1.5m');
+    expect(formatCompactLoc(1234567)).toBe('1.2m');
+  });
+
+  it('formats billions with b and trillions with t', () => {
+    expect(formatCompactLoc(1e9)).toBe('1b');
+    expect(formatCompactLoc(2.5e9)).toBe('2.5b');
+    expect(formatCompactLoc(1e12)).toBe('1t');
+    expect(formatCompactLoc(1.1e12)).toBe('1.1t');
+  });
+
+  it('returns number as string below 1000', () => {
+    expect(formatCompactLoc(0)).toBe('0');
+    expect(formatCompactLoc(1)).toBe('1');
+    expect(formatCompactLoc(999)).toBe('999');
+  });
+
+  it('handles negative and non-finite as 0', () => {
+    expect(formatCompactLoc(-100)).toBe('0');
+    expect(formatCompactLoc(Number.NaN)).toBe('0');
   });
 });
 

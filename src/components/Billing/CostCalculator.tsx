@@ -6,7 +6,7 @@
 import { useState, useEffect } from 'react';
 import { useBillingConfig, useSaveBillingConfig } from '../../hooks/useBilling';
 import type { BillingConfiguration } from '../../types/billing';
-import { getPricePer1kFromPlan, formatCurrency } from '../../utils/costCalculations';
+import { getPricePer1kFromPlan, formatCurrencyParts } from '../../utils/costCalculations';
 
 interface CostCalculatorProps {
   /** Plan allowance (total LOC in license) from billing API. Used for price per 1k LOC indication. */
@@ -115,18 +115,20 @@ export default function CostCalculator({ planAllowanceLOC }: CostCalculatorProps
             <div>
               <span className="text-sm text-gray-600 dark:text-slate-300">Contract value</span>
               <p className="text-2xl font-bold text-sonar-purple dark:text-white tabular-nums">
-                {hasContractValue
-                  ? formatCurrency(Number(formData.contractValue), formData.currency)
-                  : '—'}
+                {hasContractValue ? (() => {
+                  const p = formatCurrencyParts(Number(formData.contractValue), formData.currency);
+                  return <>{p.symbol}{p.whole}{p.decimal ? <span className="text-[0.7em] opacity-90">.{p.decimal}</span> : null}</>;
+                })() : '—'}
               </p>
               <p className="text-sm text-gray-600 dark:text-slate-300">Total license cost</p>
             </div>
             <div>
               <span className="text-sm text-gray-600 dark:text-slate-300">Price per 1k LOC (from plan)</span>
               <p className="text-2xl font-bold text-sonar-purple dark:text-white tabular-nums">
-                {hasPricePer1kFromPlan
-                  ? formatCurrency(pricePer1kFromPlan, formData.currency, 4)
-                  : '—'}
+                {hasPricePer1kFromPlan ? (() => {
+                  const p = formatCurrencyParts(pricePer1kFromPlan, formData.currency, 4);
+                  return <>{p.symbol}{p.whole}{p.decimal ? <span className="text-[0.7em] opacity-90">.{p.decimal}</span> : null}</>;
+                })() : '—'}
               </p>
               <p className="text-sm text-gray-600 dark:text-slate-300">
                 {planAllowanceLOC != null && planAllowanceLOC > 0 && formData.contractValue != null && formData.contractValue > 0

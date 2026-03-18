@@ -40,7 +40,7 @@ describe('OrganizationSelector', () => {
     queryClient = new QueryClient();
     vi.clearAllMocks();
     useEnterpriseOrganizations.mockReturnValue({
-      data: mockOrgs,
+      data: { organizations: mockOrgs },
       isLoading: false,
       error: null,
     });
@@ -49,7 +49,7 @@ describe('OrganizationSelector', () => {
   });
 
   it('renders loading state when organizations are loading', () => {
-    useEnterpriseOrganizations.mockReturnValue({ data: undefined, isLoading: true, error: null });
+    useEnterpriseOrganizations.mockReturnValue({ data: undefined, isLoading: true, error: null } as never);
     const onChange = vi.fn();
     render(
       <QueryClientProvider client={queryClient}>

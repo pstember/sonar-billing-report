@@ -2,7 +2,7 @@
  * Unit tests for LoadProgressBar.
  */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import LoadProgressBar from './LoadProgressBar';
 
@@ -19,33 +19,68 @@ const mockItems = [
     category: 'projects' as const,
     label: 'org1',
     description: 'Project list',
-    status: 'pending' as const,
-    fetchStatus: 'fetching' as const,
+    status: 'success' as const,
+    fetchStatus: 'idle' as const,
     subCalls: [],
   },
 ];
 
+const mockUseDashboardLoadProgress = vi.fn();
 vi.mock('../../hooks/useDashboardLoadProgress', () => ({
-  useDashboardLoadProgress: () => ({
-    total: 2,
-    completed: 1,
-    percent: 50,
-    items: mockItems,
-    isComplete: false,
-    isLoading: true,
-  }),
+  useDashboardLoadProgress: (...args: unknown[]) => mockUseDashboardLoadProgress(...args),
 }));
 
 describe('LoadProgressBar', () => {
-  it('renders progress label with completed and total', () => {
-    render(<LoadProgressBar />);
-    expect(screen.getByText(/1 \/ 2/)).toBeInTheDocument();
+  beforeEach(() => {
+    mockUseDashboardLoadProgress.mockReturnValue({
+      total: 2,
+      completed: 1,
+      percent: 50,
+      fetching: 1,
+      items: mockItems,
+      isComplete: false,
+      isLoading: true,
+    });
   });
 
-  it('renders item labels and descriptions', () => {
+  it('renders progress bar and count while loading', () => {
     render(<LoadProgressBar />);
-    expect(screen.getAllByText('org1').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText(/Usage and limit/)).toBeInTheDocument();
-    expect(screen.getByText(/Project list/)).toBeInTheDocument();
+    expect(screen.getByText(/1 \/ 2/)).toBeInTheDocument();
+    expect(screen.getByText(/\(1 fetching\)/)).toBeInTheDocument();
+  });
+
+  it('shows progress details and categories while loading (expanded by default)', () => {
+    render(<LoadProgressBar />);
+    expect(screen.getByText(/Billing/)).toBeInTheDocument();
+    expect(screen.getByText(/Projects/)).toBeInTheDocument();
+    expect(screen.getByText(/Only the .fetching. count are actual network/)).toBeInTheDocument();
+  });
+
+  it('renders nothing when fully loaded (isComplete)', () => {
+    mockUseDashboardLoadProgress.mockReturnValueOnce({
+      total: 2,
+      completed: 2,
+      percent: 100,
+      fetching: 0,
+      items: mockItems,
+      isComplete: true,
+      isLoading: false,
+    });
+    const { container } = render(<LoadProgressBar />);
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('renders nothing when total is 0', () => {
+    mockUseDashboardLoadProgress.mockReturnValueOnce({
+      total: 0,
+      completed: 0,
+      percent: 0,
+      fetching: 0,
+      items: [],
+      isComplete: true,
+      isLoading: false,
+    });
+    const { container } = render(<LoadProgressBar />);
+    expect(container.firstChild).toBeNull();
   });
 });

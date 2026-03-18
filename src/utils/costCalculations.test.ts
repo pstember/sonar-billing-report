@@ -5,6 +5,7 @@ import {
   calculateTieredCost,
   getCurrencySymbol,
   formatCurrency,
+  formatCurrencyParts,
 } from './costCalculations';
 import type { BillingConfiguration, TieredPricingRule } from '../types/billing';
 
@@ -147,5 +148,26 @@ describe('formatCurrency', () => {
 
   it('defaults to USD when currency not provided', () => {
     expect(formatCurrency(10)).toContain('10.00');
+  });
+});
+
+describe('formatCurrencyParts', () => {
+  it('splits USD into symbol, whole, decimal', () => {
+    const p = formatCurrencyParts(1234.56, 'USD');
+    expect(p.symbol).toBe('$');
+    expect(p.whole).toBe('1,234');
+    expect(p.decimal).toBe('56');
+  });
+
+  it('handles whole numbers with no decimal part', () => {
+    const p = formatCurrencyParts(100, 'USD', 2);
+    expect(p.whole).toBe('100');
+    expect(p.decimal).toBe('00');
+  });
+
+  it('respects decimals parameter', () => {
+    const p = formatCurrencyParts(1.234, 'USD', 3);
+    expect(p.whole).toBe('1');
+    expect(p.decimal).toBe('234');
   });
 });

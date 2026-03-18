@@ -89,6 +89,11 @@ export function useOrganizationDetails(organizationKey?: string) {
   });
 }
 
+export interface EnterpriseOrganizationsResult {
+  organizations: SelectedOrganization[];
+  enterpriseName?: string;
+}
+
 /**
  * Get all organizations in the enterprise with UUIDs
  * Fetches enterprise organizations and enriches them with keys/names
@@ -96,7 +101,7 @@ export function useOrganizationDetails(organizationKey?: string) {
 export function useEnterpriseOrganizations() {
   return useQuery({
     queryKey: ['enterpriseOrganizations'],
-    queryFn: async () => {
+    queryFn: async (): Promise<EnterpriseOrganizationsResult> => {
       const service = await getSonarCloudService();
       const auth = await getAuthConfig();
 
@@ -106,7 +111,8 @@ export function useEnterpriseOrganizations() {
 
       // Resolve enterprise UUID from key (enterprise-organizations requires enterpriseId, not enterpriseKey)
       const enterprises = await service.getEnterpriseDetails(auth.enterpriseKey);
-      const enterpriseId = enterprises?.[0]?.id;
+      const enterprise = enterprises?.[0];
+      const enterpriseId = enterprise?.id;
       if (!enterpriseId) {
         throw new Error('Enterprise not found for the given enterprise key. Please check your enterprise key.');
       }
@@ -119,7 +125,7 @@ export function useEnterpriseOrganizations() {
       const allOrgs = await service.getOrganizationsByIds(uuids);
 
       // Match enterprise orgs with detailed organization data by UUID
-      return enterpriseOrgs.map((eo) => {
+      const organizations = enterpriseOrgs.map((eo) => {
         const matchedOrg = allOrgs.find((org) => org.uuidV4 === eo.organizationUuidV4);
 
         if (!matchedOrg) {
@@ -137,6 +143,11 @@ export function useEnterpriseOrganizations() {
           uuid: eo.organizationUuidV4,
         };
       });
+
+      return {
+        organizations,
+        enterpriseName: enterprise.name,
+      };
     },
     staleTime: 60 * 60 * 1000,
   });

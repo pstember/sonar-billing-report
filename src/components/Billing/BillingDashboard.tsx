@@ -15,11 +15,13 @@ import CacheIndicator from '../CacheIndicator';
 import LoadProgressBar from './LoadProgressBar';
 import OrganizationSelector, { type SelectedOrganization } from '../OrganizationSelector';
 import ThemeSelector from '../ThemeSelector';
+import { formatCompactLoc } from '../../utils/dataTransformers';
 import { exportToCSV, exportToExcel, exportToPDF } from '../../utils/exportUtils';
 import { getCurrencySymbol } from '../../utils/costCalculations';
 import { useProjectsRealData } from '../../hooks/useProjectsRealData';
 import { useProjects, useProjectsForOrganizations } from '../../hooks/useSonarCloudData';
 import { useBillingOverview, useMultiOrgBillingOverview, useEnterpriseOrganizations } from '../../hooks/useBillingData';
+import { filterAssignmentsInScope } from '../../utils/assignmentScope';
 import { useCostCenters, useCostCenterAssignments, useBillingConfig } from '../../hooks/useBilling';
 
 export type ViewMode = 'single' | 'multi' | 'all';
@@ -62,7 +64,9 @@ export default function BillingDashboard() {
   const [viewMode, setViewMode] = useState<ViewMode>('single');
   const [selectedOrganizations, setSelectedOrganizations] = useState<SelectedOrganization[]>([]);
 
-  const { data: enterpriseOrgs = [] } = useEnterpriseOrganizations();
+  const { data: enterpriseData, isLoading: isLoadingEnterprise } = useEnterpriseOrganizations();
+  const enterpriseOrgs = enterpriseData?.organizations ?? [];
+  const enterpriseName = enterpriseData?.enterpriseName;
   const hasMultipleOrgs = enterpriseOrgs.length >= 2;
 
   const applyViewMode = (mode: ViewMode) => {
@@ -107,7 +111,9 @@ export default function BillingDashboard() {
 
   // Multi-org: aggregated billing and merged projects
   const multiBilling = useMultiOrgBillingOverview(isMultiOrg ? selectedOrganizations : []);
-  const mergedProjectsResult = useProjectsForOrganizations(isMultiOrg ? selectedOrganizations : []);
+  // All-org view needs project counts with visibility; projects search has it, billing NCLOC often does not
+  const orgsForProjectList = isMultiOrg ? selectedOrganizations : (viewMode === 'all' ? enterpriseOrgs : []);
+  const mergedProjectsResult = useProjectsForOrganizations(orgsForProjectList);
 
   // All-org summary: per-org billing data when view is "All organizations"
   const isAllOrgsView = viewMode === 'all';
@@ -163,17 +169,23 @@ export default function BillingDashboard() {
   const { data: allAssignments = [] } = useCostCenterAssignments();
   const { data: billingConfig } = useBillingConfig();
 
-  const projectKeysFromAssignments = useMemo(
-    () => [...new Set((allAssignments.filter((a) => (a.type === 'project' || a.projectKey) && a.projectKey).map((a) => a.projectKey!)))],
-    [allAssignments]
-  );
-
   const allPrivateProjectKeys = useMemo(
     () =>
       isMultiOrg
         ? mergedProjectsResult.projects.filter((p) => p.visibility === 'private').map((p) => p.key)
         : (allProjects?.components?.filter((p) => p.visibility === 'private').map((p) => p.key) ?? []),
     [isMultiOrg, mergedProjectsResult.projects, allProjects]
+  );
+
+  // Only treat assignments as "in scope" when their project is in the currently selected org(s)
+  const assignmentsInScope = useMemo(
+    () => filterAssignmentsInScope(allAssignments, allPrivateProjectKeys),
+    [allAssignments, allPrivateProjectKeys]
+  );
+
+  const projectKeysFromAssignments = useMemo(
+    () => [...new Set(assignmentsInScope.filter((a) => a.projectKey).map((a) => a.projectKey!))],
+    [assignmentsInScope]
   );
 
   const projectKeysForData = useMemo(
@@ -197,7 +209,7 @@ export default function BillingDashboard() {
   // Use a reserved key for aggregate total so a cost center named "Total" doesn't overwrite it
   const AGGREGATE_TOTAL_KEY = '__total__';
   const { realTrendData, trendTeamNames, trendSeriesLabels } = useMemo(() => {
-    const projectOnly = allAssignments.filter((a) => (a.type === 'project' || a.projectKey) && a.projectKey && a.costCenterId);
+    const projectOnly = assignmentsInScope.filter((a) => (a.type === 'project' || a.projectKey) && a.projectKey && a.costCenterId);
     const ccDisplayNames = costCenters.map((cc) => (cc.code ? `${cc.name} (${cc.code})` : cc.name));
     const data: { date: string; [key: string]: string | number }[] = [];
 
@@ -232,10 +244,10 @@ export default function BillingDashboard() {
       trendTeamNames: [...ccDisplayNames, AGGREGATE_TOTAL_KEY],
       trendSeriesLabels: labels,
     };
-  }, [monthlyTrendByProject, costCenters, allAssignments]);
+  }, [monthlyTrendByProject, costCenters, assignmentsInScope]);
 
   const costCenterDistribution = useMemo(() => {
-    const projectOnly = allAssignments.filter((a) => (a.type === 'project' || a.projectKey) && a.projectKey && a.costCenterId);
+    const projectOnly = assignmentsInScope.filter((a) => (a.type === 'project' || a.projectKey) && a.projectKey && a.costCenterId);
     const nclocByKey = new Map(projectsData.map((p) => [p.key, p.ncloc]));
     const byCostCenter = new Map<string, number>();
     for (const cc of costCenters) {
@@ -260,12 +272,12 @@ export default function BillingDashboard() {
       unallocatedLoc: Math.round(unallocatedLoc),
       totalInScope,
     };
-  }, [costCenters, allAssignments, projectsData]);
+  }, [costCenters, assignmentsInScope, projectsData]);
 
   const unusedLoc = limit != null && consumed != null ? Math.max(0, limit - (consumed || 0)) : undefined;
 
   const billingDetailsData = useMemo(() => {
-    const projectOnly = allAssignments.filter((a) => (a.type === 'project' || a.projectKey) && a.projectKey && a.costCenterId);
+    const projectOnly = assignmentsInScope.filter((a) => (a.type === 'project' || a.projectKey) && a.projectKey && a.costCenterId);
     const nclocByKey = new Map(projectsData.map((p) => [p.key, p.ncloc]));
     const projectNameByKey = new Map(projectsData.map((p) => [p.key, p.name]));
     const config = billingConfig ?? { defaultRate: 10, currency: 'USD' };
@@ -396,7 +408,7 @@ export default function BillingDashboard() {
     }
     rows.splice(0, rows.length, ...shareRows);
     return { rows, totalScopeLoc };
-  }, [costCenters, allAssignments, projectsData, billingConfig, limit, isMultiOrg, projectKeyToOrgName]);
+  }, [costCenters, assignmentsInScope, projectsData, billingConfig, limit, isMultiOrg, projectKeyToOrgName]);
 
   const handleLogout = async () => {
     if (confirm('Are you sure you want to log out?')) {
@@ -439,8 +451,17 @@ export default function BillingDashboard() {
     return { segments, unassignedCost, unassignedLicenseShare, unusedLicenseShare };
   }, [billingRows, costCenterDistribution.costCenterSegments]);
 
-  // Calculate stats for selected projects (exclude 0 LOC = no scan)
-  const selectedLOC = projectsData.reduce((sum, p) => sum + p.ncloc, 0);
+  /** Projects that are assigned and in selected org(s) — used for metrics and "total LOC in scope" to match the billing table. */
+  const projectsInScope = useMemo(() => {
+    const inScopeKeys = new Set(projectKeysFromAssignments);
+    return projectsData.filter((p) => inScopeKeys.has(p.key));
+  }, [projectsData, projectKeysFromAssignments]);
+
+  // Total LOC for in-scope (assigned) projects only — matches billing table and export totals
+  const selectedLOC = useMemo(
+    () => projectsInScope.reduce((sum, p) => sum + p.ncloc, 0),
+    [projectsInScope]
+  );
 
   const buildExportRows = useMemo(() => {
     const curr = billingConfig?.currency ?? 'USD';
@@ -486,13 +507,16 @@ export default function BillingDashboard() {
     await exportToPDF(buildExportRows(billingRows, selectedLOC, billingTotals), `billing-report-${new Date().toISOString().split('T')[0]}.pdf`);
   };
   const selectedCount = selectedProjects.length;
-  const projectsWithLoc = useMemo(
-    () => projectsData.filter((p) => p.ncloc > 0),
-    [projectsData]
+  /** Number of projects assigned (to cost centers) that are in the currently selected org(s). Used for Projects Assigned card. */
+  const assignedInScopeCount = projectKeysFromAssignments.length;
+  /** In-scope assigned projects with LOC > 0 — for Median/Min/Max LOC cards so metrics match the billing view. */
+  const projectsWithLocInScope = useMemo(
+    () => projectsInScope.filter((p) => p.ncloc > 0),
+    [projectsInScope]
   );
   const { medianLOCPerProject, minLoc, maxLoc } = useMemo(() => {
-    if (projectsWithLoc.length === 0) return { medianLOCPerProject: null, minLoc: null, maxLoc: null };
-    const sorted = [...projectsWithLoc].map((p) => p.ncloc).sort((a, b) => a - b);
+    if (projectsWithLocInScope.length === 0) return { medianLOCPerProject: null, minLoc: null, maxLoc: null };
+    const sorted = [...projectsWithLocInScope].map((p) => p.ncloc).sort((a, b) => a - b);
     const mid = Math.floor(sorted.length / 2);
     const median = sorted.length % 2 !== 0
       ? sorted[mid]
@@ -502,7 +526,7 @@ export default function BillingDashboard() {
       minLoc: sorted[0],
       maxLoc: sorted.at(-1) ?? null,
     };
-  }, [projectsWithLoc]);
+  }, [projectsWithLocInScope]);
 
   // ONLY use data from billing API - no fallbacks to configured limits
   // consumed = total LOC used across all private projects in the organization
@@ -529,48 +553,46 @@ export default function BillingDashboard() {
               </button>
             </div>
           </div>
-          {hasMultipleOrgs ? (
-            <div className="space-y-3">
-              <div className="flex items-center gap-4">
-                <span className="text-xs font-bold text-sonar-purple dark:text-white uppercase tracking-wide">View</span>
-                <div className="flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
-                  {(['single', 'multi', 'all'] as const).map((mode) => (
-                    <button
-                      key={mode}
-                      type="button"
-                      onClick={() => applyViewMode(mode)}
-                      className={`px-4 py-2 text-sm font-medium font-body transition-colors ${
-                        viewMode === mode
-                          ? 'bg-sonar-blue text-white'
-                          : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                      }`}
-                    >
-                      {mode === 'single' && 'Single organization'}
-                      {mode === 'multi' && 'Multiple organizations'}
-                      {mode === 'all' && 'All organizations'}
-                    </button>
-                  ))}
-                </div>
+          <div className="space-y-3">
+            <div className="flex items-center gap-4">
+              <span className="text-xs font-bold text-sonar-purple dark:text-white uppercase tracking-wide">View</span>
+              <div className="flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
+                {(['single', 'multi', 'all'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => applyViewMode(mode)}
+                    className={`px-4 py-2 text-sm font-medium font-body transition-colors ${
+                      viewMode === mode
+                        ? 'bg-sonar-blue text-white'
+                        : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    {mode === 'single' && 'Single organization'}
+                    {mode === 'multi' && 'Multiple organizations'}
+                    {mode === 'all' && 'All organizations'}
+                  </button>
+                ))}
               </div>
-              {viewMode === 'single' && (
-                <OrganizationSelector onOrganizationChange={setSelectedOrganization} />
-              )}
-              {viewMode === 'multi' && (
-                <OrganizationSelector
-                  multiSelect
-                  selectedOrganizations={selectedOrganizations}
-                  onOrganizationsChange={handleOrganizationsChange}
-                />
-              )}
-              {viewMode === 'all' && (
-                <div className="flex items-center gap-3 px-4 py-2 bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600">
-                  <span className="text-sm font-medium text-gray-600 dark:text-slate-300">Showing all organizations in enterprise</span>
-                </div>
-              )}
             </div>
-          ) : (
-            <OrganizationSelector onOrganizationChange={setSelectedOrganization} />
-          )}
+            {viewMode === 'single' && (
+              <OrganizationSelector onOrganizationChange={setSelectedOrganization} />
+            )}
+            {viewMode === 'multi' && (
+              <OrganizationSelector
+                multiSelect
+                selectedOrganizations={selectedOrganizations}
+                onOrganizationsChange={handleOrganizationsChange}
+              />
+            )}
+            {viewMode === 'all' && (
+              <div className="flex items-center gap-3 px-4 py-2 bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600">
+                <span className="text-sm font-medium text-gray-600 dark:text-slate-300">
+                  Showing all organizations in {enterpriseName ? <strong className="text-sonar-purple dark:text-white">{enterpriseName}</strong> : 'enterprise'}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -580,89 +602,122 @@ export default function BillingDashboard() {
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
         <div className="px-4 py-6 sm:px-0 space-y-6">
           {viewMode === 'all' ? (
-            /* All organizations summary view */
+            /* All organizations summary view – table for easy comparison */
             <div className="space-y-6">
-              <h2 className="text-2xl font-bold text-sonar-purple dark:text-white">All organizations</h2>
-              <p className="text-gray-600 dark:text-slate-300 font-body">
-                Summary of billing and usage per organization. Open one to view its dashboard or add several to compare.
-              </p>
-              <p className="text-sm text-gray-500 dark:text-slate-400 font-body">
-                <span className="inline-block px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200 font-medium mr-1">Reserved</span> = per-org;{' '}
-                <span className="inline-block px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 font-medium ml-1 mr-1">Pooled</span> = shared (counted once in enterprise total).
-              </p>
+              <div>
+                <h2 className="text-2xl font-bold text-sonar-purple dark:text-white">All organizations</h2>
+                <p className="mt-1 text-gray-600 dark:text-slate-300 font-body">
+                  Summary of billing and usage per organization. Open one to view its dashboard or add several to compare.
+                </p>
+                <p className="mt-2 text-sm text-gray-500 dark:text-slate-400 font-body">
+                  <span className="inline-block px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200 font-medium mr-1">Reserved</span> = per-org;{' '}
+                  <span className="inline-block px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 font-medium ml-1 mr-1">Pooled</span> = shared (counted once in enterprise total).
+                </p>
+              </div>
+
               {(() => {
-                if (allOrgsBilling.isLoading) {
+                const enterpriseLoaded = !isLoadingEnterprise && enterpriseData !== undefined;
+                const showEmptyMessage = enterpriseLoaded && enterpriseOrgs.length === 0;
+                const showBillingLoading = enterpriseOrgs.length > 0 && allOrgsBilling.isLoading;
+                const hasRows = allOrgsBilling.byOrg.length > 0;
+
+                if (!enterpriseLoaded || showBillingLoading) {
                   return (
-                    <div className="flex items-center justify-center gap-3 py-12 bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-600">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sonar-blue" />
-                      <span className="text-gray-600 dark:text-slate-300">Loading organization data...</span>
+                    <div className="flex items-center justify-center gap-3 py-16 bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-600 shadow-sm">
+                      <div className="animate-spin rounded-full h-10 w-10 border-2 border-sonar-blue border-t-transparent" />
+                      <span className="text-gray-600 dark:text-slate-300 font-body">Loading organization data…</span>
                     </div>
                   );
                 }
-                if (allOrgsBilling.byOrg.length === 0) {
+                if (showEmptyMessage) {
                   return (
-                    <div className="py-12 bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-600 text-center text-gray-600 dark:text-slate-300">
-                      No organizations found.
+                    <div className="py-16 bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-600 text-center shadow-sm">
+                      <p className="text-gray-600 dark:text-slate-300 font-body">No organizations found in enterprise.</p>
+                    </div>
+                  );
+                }
+                if (!hasRows) {
+                  return (
+                    <div className="py-16 bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-600 text-center shadow-sm">
+                      <p className="text-gray-600 dark:text-slate-300 font-body">Unable to load billing data for organizations. Try refreshing.</p>
                     </div>
                   );
                 }
                 return (
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {allOrgsBilling.byOrg.map((org) => (
-                    <div
-                      key={org.key}
-                      className="bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-gray-200 dark:border-slate-600 p-5 hover:border-sonar-blue/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-2 mb-3 flex-wrap">
-                        <h3 className="text-lg font-bold text-sonar-purple dark:text-white truncate min-w-0" title={org.name}>{org.name}</h3>
-                        <OrgModeBadge mode={org.mode ?? ''} />
-                      </div>
-                      <dl className="space-y-1 text-sm">
-                        <div className="flex justify-between">
-                          <dt className="text-gray-600 dark:text-slate-400">Consumed</dt>
-                          <dd className="font-medium tabular-nums text-gray-900 dark:text-white">{(org.consumed ?? 0).toLocaleString()} LOC</dd>
-                        </div>
-                        <div className="flex justify-between">
-                          <dt className="text-gray-600 dark:text-slate-400">Limit</dt>
-                          <dd className="font-medium tabular-nums text-gray-900 dark:text-white">{(org.limit ?? 0).toLocaleString()} LOC</dd>
-                        </div>
-                        <div className="flex justify-between">
-                          <dt className="text-gray-600 dark:text-slate-400">Usage</dt>
-                          <dd className="font-medium tabular-nums text-emerald-600 dark:text-emerald-400">{org.usagePercent.toFixed(1)}%</dd>
-                        </div>
-                        <div className="flex justify-between">
-                          <dt className="text-gray-600 dark:text-slate-400">Projects</dt>
-                          <dd className="font-medium tabular-nums text-gray-900 dark:text-white">{org.privateProjectCount} private / {org.publicProjectCount} public</dd>
-                        </div>
-                      </dl>
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            applyViewMode('single');
-                            setSelectedOrganization({ key: org.key, name: org.name, uuid: org.uuid });
-                            saveSetting('selectedOrganization', org.key).catch(() => {});
-                          }}
-                          className="btn-sonar-primary px-3 py-1.5 text-sm rounded-lg"
-                        >
-                          Open
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            applyViewMode('multi');
-                            const next = [...selectedOrganizations];
-                            if (!next.some((o) => o.key === org.key)) next.push({ key: org.key, name: org.name, uuid: org.uuid });
-                            setSelectedOrganizations(next);
-                            handleOrganizationsChange(next);
-                          }}
-                          className="btn-sonar-accent px-3 py-1.5 text-sm rounded-lg"
-                        >
-                          Add to compare
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-gray-200 dark:border-slate-600 overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 dark:bg-gray-700/80">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-slate-200 uppercase tracking-wider">Organization</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-slate-200 uppercase tracking-wider">Billing</th>
+                          <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 dark:text-slate-200 uppercase tracking-wider">Consumed (LOC)</th>
+                          <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 dark:text-slate-200 uppercase tracking-wider">Limit (LOC)</th>
+                          <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 dark:text-slate-200 uppercase tracking-wider">Usage %</th>
+                          <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 dark:text-slate-200 uppercase tracking-wider">Private / Public</th>
+                          <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 dark:text-slate-200 uppercase tracking-wider">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200 dark:divide-slate-600">
+                        {(allOrgsBilling.orgResults ?? allOrgsBilling.byOrg.map((o) => ({
+                          org: { key: o.key, name: o.name, uuid: o.uuid },
+                          data: o,
+                          isPending: false,
+                          error: null,
+                        }))).map(({ org, data, isPending, error: rowError }) => {
+                          const counts = perOrgProjectCounts.get(org.key);
+                          const privateCount = counts?.private ?? data?.privateProjectCount ?? 0;
+                          const publicCount = counts?.public ?? data?.publicProjectCount ?? 0;
+                          return (
+                            <tr key={org.key} className="hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors">
+                              <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{org.name}</td>
+                              <td className="px-4 py-3">{renderModeCell(rowError, isPending, data?.mode)}</td>
+                              <td className="px-4 py-3 text-right tabular-nums text-gray-700 dark:text-slate-300">
+                                {tableCellContent(rowError, isPending, () => (data?.consumed ?? 0))}
+                              </td>
+                              <td className="px-4 py-3 text-right tabular-nums text-gray-700 dark:text-slate-300">
+                                {tableCellContent(rowError, isPending, () => (data?.limit ?? 0))}
+                              </td>
+                              <td className="px-4 py-3 text-right tabular-nums text-gray-700 dark:text-slate-300">
+                                {tableCellContent(rowError, isPending, () => `${(data?.usagePercent ?? 0).toFixed(1)}%`)}
+                              </td>
+                              <td className="px-4 py-3 text-right tabular-nums text-gray-600 dark:text-slate-400">
+                                {tableCellContent(rowError, isPending, () => `${privateCount} / ${publicCount}`)}
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      applyViewMode('single');
+                                      setSelectedOrganization({ key: org.key, name: org.name, uuid: org.uuid });
+                                      saveSetting('selectedOrganization', org.key).catch(() => {});
+                                    }}
+                                    className="btn-sonar-primary px-3 py-1.5 text-xs font-medium rounded-lg"
+                                  >
+                                    Open
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      applyViewMode('multi');
+                                      const next = [...selectedOrganizations];
+                                      if (!next.some((o) => o.key === org.key)) next.push({ key: org.key, name: org.name, uuid: org.uuid });
+                                      setSelectedOrganizations(next);
+                                      handleOrganizationsChange(next);
+                                    }}
+                                    className="btn-sonar-accent px-3 py-1.5 text-xs font-medium rounded-lg"
+                                  >
+                                    Add to compare
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
                 );
               })()}
@@ -671,9 +726,9 @@ export default function BillingDashboard() {
             <>
               {/* Always-Visible Billing Metrics */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {/* Projects Assigned - donut with count in center */}
+                    {/* Projects Assigned - donut with count in center (only projects in selected org(s)) */}
                     <div className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-xl border-2 border-gray-100 dark:border-gray-700 p-6 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
-                      <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center justify-between mb-3 min-h-[2.75rem]">
                         <h3 className="text-xs font-bold text-sonar-purple dark:text-white font-body uppercase tracking-wider">
                           Projects Assigned
                         </h3>
@@ -683,20 +738,20 @@ export default function BillingDashboard() {
                           </svg>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-4 min-h-[5rem]">
                         {actualPrivateProjectCount > 0 ? (() => {
-                          const assignedPct = selectedCount / actualPrivateProjectCount;
+                          const assignedPct = assignedInScopeCount / actualPrivateProjectCount;
                           const deg = Math.min(1, assignedPct) * 360;
                           return (
                             <div
                               className="relative flex-shrink-0 w-20 h-20 rounded-full"
-                              title={`${selectedCount} of ${actualPrivateProjectCount} private projects assigned`}
+                              title={`${assignedInScopeCount} of ${actualPrivateProjectCount} private projects assigned (in selected orgs)`}
                               style={{
                                 background: `conic-gradient(#4f46e5 0deg ${deg}deg, #94a3b8 ${deg}deg 360deg)`,
                               }}
                             >
                               <div className="absolute inset-[10px] rounded-full bg-white dark:bg-slate-800 flex items-center justify-center">
-                                <span className="text-2xl font-black text-gray-900 dark:text-white tabular-nums">{selectedCount}</span>
+                                <span className="text-2xl font-black text-gray-900 dark:text-white tabular-nums">{assignedInScopeCount}</span>
                               </div>
                             </div>
                           );
@@ -705,12 +760,12 @@ export default function BillingDashboard() {
                             <span className="text-2xl font-black text-gray-500 dark:text-slate-200 tabular-nums">—</span>
                           </div>
                         )}
-                        <div className="flex-1 min-w-0">
+                        <div className="flex-1 min-w-0 flex flex-col justify-center">
                           <p className="text-xl font-bold text-gray-900 dark:text-slate-100 tabular-nums">
-                            {selectedCount}<span className="text-lg text-gray-600 dark:text-slate-300 font-semibold">/{actualPrivateProjectCount}</span>
+                            {assignedInScopeCount}<span className="text-lg text-gray-600 dark:text-slate-300 font-semibold">/{actualPrivateProjectCount}</span>
                           </p>
                           <p className="text-xs text-gray-600 dark:text-slate-300 font-medium">
-                            {actualPrivateProjectCount > 0 ? ((selectedCount / actualPrivateProjectCount) * 100).toFixed(0) : 0}% of private projects
+                            {actualPrivateProjectCount > 0 ? ((assignedInScopeCount / actualPrivateProjectCount) * 100).toFixed(0) : 0}% of private projects
                           </p>
                           <p className="text-xs text-gray-600 dark:text-slate-400 mt-1">
                             {totalProjectCount} total ({actualPublicProjectCount} public)
@@ -721,9 +776,9 @@ export default function BillingDashboard() {
 
                     {/* LOC attributed to cost centers - donut with value in center */}
                     <div className="bg-gradient-to-br from-white to-blue-50 dark:from-gray-800 dark:to-blue-950 rounded-2xl shadow-xl border-2 border-blue-100 dark:border-blue-900 p-6 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
-                      <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center justify-between mb-3 min-h-[2.75rem]">
                         <h3 className="text-xs font-bold text-sonar-purple dark:text-white font-body uppercase tracking-wider">
-                          LOC attributed to cost centers
+                          LOC to cost centers
                         </h3>
                         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-sonar-blue to-sonar-blue-secondary flex items-center justify-center shadow-lg">
                           <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -731,7 +786,7 @@ export default function BillingDashboard() {
                           </svg>
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-4 min-h-[5rem]">
                         {(selectedCount > 0 || projectKeysFromAssignments.length > 0) ? (() => {
                           const total = billingTotals.allocatedLoc + costCenterDistribution.unallocatedLoc;
                           if (total <= 0) {
@@ -752,8 +807,8 @@ export default function BillingDashboard() {
                               }}
                             >
                               <div className="absolute inset-[10px] rounded-full bg-white dark:bg-slate-900 flex items-center justify-center">
-                                <span className="text-sm font-black text-sonar-blue dark:text-sky-300 tabular-nums leading-tight text-center px-0.5 truncate max-w-full">
-                                  {billingTotals.allocatedLoc.toLocaleString()}
+                                <span className="text-sm font-black text-sonar-blue dark:text-sky-300 tabular-nums leading-tight text-center" title={billingTotals.allocatedLoc.toLocaleString()}>
+                                  {formatCompactLoc(billingTotals.allocatedLoc)}
                                 </span>
                               </div>
                             </div>
@@ -763,13 +818,31 @@ export default function BillingDashboard() {
                             <span className="text-lg font-black text-gray-500 dark:text-slate-300 tabular-nums">—</span>
                           </div>
                         )}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs text-gray-600 dark:text-slate-300 font-medium">
-                            LOC attributed to cost centers
-                          </p>
-                          {(selectedCount > 0 || projectKeysFromAssignments.length > 0) && (
-                            <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
-                              of {selectedLOC.toLocaleString()} total LOC in scope
+                        <div className="flex-1 min-w-0 flex flex-col justify-center">
+                          {(selectedCount > 0 || projectKeysFromAssignments.length > 0) && (() => {
+                            const totalLocInScope = billingTotals.allocatedLoc + costCenterDistribution.unallocatedLoc;
+                            const allocatedPct = totalLocInScope > 0 ? (billingTotals.allocatedLoc / totalLocInScope) * 100 : 0;
+                            return totalLocInScope > 0 ? (
+                              <>
+                                <p className="text-xl font-bold text-sonar-blue dark:text-sky-300 tabular-nums">
+                                  {formatCompactLoc(billingTotals.allocatedLoc)}
+                                </p>
+                                <p className="text-xs text-gray-600 dark:text-slate-300 font-medium">
+                                  {allocatedPct.toFixed(0)}% of total in scope
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
+                                  {totalLocInScope.toLocaleString()} total LOC in scope
+                                </p>
+                              </>
+                            ) : (
+                              <p className="text-xs text-gray-600 dark:text-slate-300 font-medium">
+                                LOC to cost centers
+                              </p>
+                            );
+                          })()}
+                          {!(selectedCount > 0 || projectKeysFromAssignments.length > 0) && (
+                            <p className="text-xs text-gray-600 dark:text-slate-300 font-medium">
+                              LOC to cost centers
                             </p>
                           )}
                         </div>
@@ -778,9 +851,9 @@ export default function BillingDashboard() {
 
                     {/* Plan Usage - headroom = allowance − consumed */}
                     <div className="bg-gradient-to-br from-white to-emerald-50 dark:from-gray-800 dark:to-emerald-950 rounded-2xl shadow-xl border-2 border-emerald-100 dark:border-emerald-900 p-6 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
-                        <div className="flex items-center justify-between mb-3">
-<h3 className="text-xs font-bold text-sonar-purple dark:text-white font-body uppercase tracking-wider">
-                          Plan Usage {limit && limit > 0 && <span className="text-green-600">●</span>}
+                        <div className="flex items-center justify-between mb-3 min-h-[2.75rem]">
+                          <h3 className="text-xs font-bold text-sonar-purple dark:text-white font-body uppercase tracking-wider">
+                            Plan Usage {limit && limit > 0 && <span className="text-green-600">●</span>}
                           </h3>
                           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg">
                             {isLoadingBilling ? (
@@ -851,7 +924,7 @@ export default function BillingDashboard() {
 
                     {/* Median LOC Per Project */}
                     <div className="bg-gradient-to-br from-white to-purple-50 dark:from-gray-800 dark:to-purple-950 rounded-2xl shadow-xl border-2 border-purple-100 dark:border-purple-900 p-6 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
-                      <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center justify-between mb-3 min-h-[2.75rem]">
                         <h3 className="text-xs font-bold text-sonar-purple dark:text-white font-body uppercase tracking-wider">
                           Median LOC Per Project
                         </h3>
@@ -865,7 +938,7 @@ export default function BillingDashboard() {
                         {medianLOCPerProject != null ? medianLOCPerProject.toLocaleString() : '—'}
                       </p>
                       <p className="text-xs text-gray-600 dark:text-slate-300 font-medium">
-                        Typical codebase size (scanned projects only)
+                        Typical codebase size (assigned projects in scope)
                       </p>
                       {minLoc != null && maxLoc != null && (
                         <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
@@ -937,6 +1010,7 @@ export default function BillingDashboard() {
                     projectsWithOrg={isMultiOrg ? mergedProjectsResult.projects : undefined}
                     preferredNclocMap={projectNclocMap}
                     onProjectsSelected={setSelectedProjects}
+                    projectKeysInSelectedOrgs={allPrivateProjectKeys.length > 0 ? allPrivateProjectKeys : undefined}
                   />
 
                   {(selectedProjects.length > 0 || projectKeysFromAssignments.length > 0) && (

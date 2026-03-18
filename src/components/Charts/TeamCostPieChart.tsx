@@ -7,7 +7,7 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
-import { formatCurrency } from '../../utils/costCalculations';
+import { formatCurrencyParts } from '../../utils/costCalculations';
 import { formatLargeNumber } from '../../utils/dataTransformers';
 import { PIE_COLORS, PIE_UNASSIGNED_COLOR, PIE_UNUSED_COLOR } from '../../constants/chartColors';
 
@@ -40,6 +40,7 @@ const CustomPieTooltip = (props: {
   const entry = payload[0]?.payload;
   if (!entry) return null;
   const money = showUnused === 'all' ? (entry.licenseShare ?? 0) : (entry.cost ?? 0);
+  const costParts = formatCurrencyParts(money, currency);
   return (
     <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-600 px-4 py-3 min-w-[180px]">
       <p className="font-body font-semibold text-gray-900 dark:text-white text-sm mb-1">{entry.name}</p>
@@ -48,7 +49,10 @@ const CustomPieTooltip = (props: {
       </p>
       <p className="text-sm text-gray-600 dark:text-slate-300 font-body">
         {showUnused === 'all' ? 'License share' : 'Rate cost'}:{' '}
-        <span className="font-semibold text-gray-900 dark:text-white tabular-nums">{formatCurrency(money, currency)}</span>
+        <span className="font-semibold text-gray-900 dark:text-white tabular-nums">
+          {costParts.symbol}{costParts.whole}
+          {costParts.decimal ? <span className="text-[0.7em] opacity-90">.{costParts.decimal}</span> : null}
+        </span>
       </p>
     </div>
   );
@@ -226,7 +230,11 @@ export default function TeamCostPieChart({
                   </td>
                   <td className="text-right py-2 px-3 tabular-nums">{formatLargeNumber(entry.value)}</td>
                   <td className="text-right py-2 px-3 tabular-nums font-medium">
-                    {formatCurrency(showUnused === 'all' ? (entry.licenseShare ?? 0) : (entry.cost ?? 0), currency)}
+                    {(() => {
+                      const money = showUnused === 'all' ? (entry.licenseShare ?? 0) : (entry.cost ?? 0);
+                      const p = formatCurrencyParts(money, currency);
+                      return <>{p.symbol}{p.whole}{p.decimal ? <span className="text-[0.7em] opacity-90">.{p.decimal}</span> : null}</>;
+                    })()}
                   </td>
                 </tr>
               ))}

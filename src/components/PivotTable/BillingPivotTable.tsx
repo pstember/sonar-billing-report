@@ -13,8 +13,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
-import type { ColDef } from 'ag-grid-community';
-import { formatCurrency, getCurrencySymbol } from '../../utils/costCalculations';
+import type { ColDef, ICellRendererParams } from 'ag-grid-community';
+import { formatCurrencyParts, getCurrencySymbol } from '../../utils/costCalculations';
 import { formatNumberWithCommas } from '../../utils/dataTransformers';
 import { isDark } from '../../utils/theme';
 
@@ -47,6 +47,19 @@ interface BillingPivotTableProps {
 }
 
 const NO_ROWS_MESSAGE = 'No billing rows. Assign projects to cost centers above.';
+
+/** Renders currency with decimal part in smaller type so whole vs fractional is obvious. */
+function CurrencyCell(params: ICellRendererParams<BillingDetailsRow, number> & { currency: string }) {
+  const value = Number(params.value) || 0;
+  const currency = params.currency || 'USD';
+  const parts = formatCurrencyParts(value, currency);
+  return (
+    <span className="tabular-nums">
+      {parts.symbol}{parts.whole}
+      {parts.decimal ? <span className="text-[0.7em] opacity-90">.{parts.decimal}</span> : null}
+    </span>
+  );
+}
 
 export default function BillingPivotTable({ data, currency = 'USD', totals, showOrganizationColumn = false }: BillingPivotTableProps) {
   const [dark, setDark] = useState(() => isDark());
@@ -122,14 +135,16 @@ export default function BillingPivotTable({ data, currency = 'USD', totals, show
         headerName: `Cost rate-based (${getCurrencySymbol(currency)})`,
         type: 'numericColumn',
         width: 140,
-        valueFormatter: (params) => formatCurrency(Number(params.value) || 0, currency),
+        cellRenderer: CurrencyCell,
+        cellRendererParams: { currency },
       },
       {
         field: 'costContractShare',
         headerName: `License share (${getCurrencySymbol(currency)})`,
         type: 'numericColumn',
         width: 140,
-        valueFormatter: (params) => formatCurrency(Number(params.value) || 0, currency),
+        cellRenderer: CurrencyCell,
+        cellRendererParams: { currency },
       },
     ],
     [currency, showOrganizationColumn]

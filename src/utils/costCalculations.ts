@@ -97,3 +97,34 @@ export function formatCurrency(
     maximumFractionDigits: decimals,
   }).format(amount);
 }
+
+/** Parts for rendering currency with the decimal in smaller type (e.g. $1,234.<small>56</small>) */
+export interface CurrencyParts {
+  symbol: string;
+  whole: string;
+  decimal: string;
+}
+
+/**
+ * Split formatted currency into symbol, whole part, and decimal part for display (e.g. decimal in smaller font).
+ */
+export function formatCurrencyParts(
+  amount: number,
+  currency = 'USD',
+  decimals = 2
+): CurrencyParts {
+  const symbol = getCurrencySymbol(currency);
+  const formatted = new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+    useGrouping: true,
+  }).format(Math.abs(amount));
+  const lastDot = formatted.lastIndexOf('.');
+  const whole = lastDot >= 0 ? formatted.slice(0, lastDot) : formatted;
+  const decimal = lastDot >= 0 ? formatted.slice(lastDot + 1) : '';
+  return {
+    symbol: amount < 0 ? `−${symbol}` : symbol,
+    whole,
+    decimal,
+  };
+}

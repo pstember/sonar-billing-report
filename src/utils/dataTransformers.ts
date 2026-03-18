@@ -77,6 +77,31 @@ export function formatLargeNumber(num: number): string {
   return num.toString();
 }
 
+const LOC_SCALES = [
+  { threshold: 1e12, suffix: 't' },
+  { threshold: 1e9, suffix: 'b' },
+  { threshold: 1e6, suffix: 'm' },
+  { threshold: 1e3, suffix: 'k' },
+] as const;
+
+/**
+ * Format LOC (or any number) in compact human-readable form: 224k, 1.5m, 2.1b, 1.2t.
+ * Use in tight spaces (e.g. donut center) to avoid truncation.
+ */
+export function formatCompactLoc(num: number): string {
+  if (!Number.isFinite(num) || num < 0) return '0';
+  const n = Math.round(num);
+  if (n < 1000) return n.toString();
+  for (const { threshold, suffix } of LOC_SCALES) {
+    if (n >= threshold) {
+      const value = n / threshold;
+      const rounded = Math.round(value * 10) / 10;
+      return `${rounded}${suffix}`;
+    }
+  }
+  return n.toString();
+}
+
 /**
  * Format number with thousand separators
  */

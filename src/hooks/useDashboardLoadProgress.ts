@@ -119,10 +119,13 @@ function getDashboardProgress(
       fetchStatus(q) === 'fetching'
   );
   const total = activeQueries.length;
-  const completed = activeQueries.filter(
-    (q) => q.state.status === 'success' || q.state.status === 'error'
-  ).length;
   const fetching = activeQueries.filter((q) => fetchStatus(q) === 'fetching').length;
+  /* Only count as completed when done and not currently fetching (avoids counting background refetches) */
+  const completed = activeQueries.filter(
+    (q) =>
+      (q.state.status === 'success' || q.state.status === 'error') &&
+      fetchStatus(q) !== 'fetching'
+  ).length;
   const items: LoadProgressItem[] = activeQueries.map((q) => {
     const key = (q.queryKey?.[0] as string) ?? '';
     const key2 = q.queryKey?.[1];
@@ -157,7 +160,7 @@ export function useDashboardLoadProgress() {
   }, [queryClient]);
 
   const { completed, total, fetching, items } = progress;
-  const isComplete = total > 0 && completed >= total;
+  const isComplete = total > 0 && completed >= total && fetching === 0;
   const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
 
   return {
