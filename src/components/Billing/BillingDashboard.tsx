@@ -52,7 +52,7 @@ function OrgModeBadge({ mode }: { mode: string }) {
   }
   if (mode === 'absoluteReserved') {
     return (
-      <span className="shrink-0 px-2 py-0.5 text-xs font-medium rounded-full bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200" title="Reserved LOC — counted per organization in total">
+      <span className="shrink-0 px-2 py-0.5 text-xs font-medium rounded-full bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200" title="Reserved LOC — counted per organisation in total">
         Reserved
       </span>
     );
@@ -668,18 +668,18 @@ export default function BillingDashboard() {
           </div>
           <div className="space-y-3">
             <div className="flex items-center gap-4">
-              <span className="text-xs font-bold text-sonar-purple dark:text-white uppercase tracking-wide">View</span>
+              <span className="text-xs font-bold text-sonar-purple dark:text-white uppercase tracking-wide">Perspective</span>
               <div className="flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
                 {(['single', 'multi', 'all'] as const).map((mode) => {
                   const labels = {
-                    single: 'Single Organization',
-                    multi: 'Compare Organizations',
-                    all: 'All Organizations'
+                    single: 'Single Organisation',
+                    multi: 'Multiple organisation',
+                    all: 'Enterprise Overview'
                   };
                   const tooltips = {
-                    single: 'View one organization with full cost allocation details',
-                    multi: 'Compare metrics across selected organizations',
-                    all: 'High-level overview of all organizations in your enterprise'
+                    single: 'View one organisation with full cost allocation details',
+                    multi: 'Compare metrics across multiple organisations',
+                    all: 'Enterprise-wide overview of all organisations'
                   };
                   return (
                     <button
@@ -712,7 +712,7 @@ export default function BillingDashboard() {
             {viewMode === 'all' && (
               <div className="flex items-center gap-3 px-4 py-2 bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600">
                 <span className="text-sm font-medium text-gray-600 dark:text-slate-300">
-                  Showing all organizations in {enterpriseName ? <strong className="text-sonar-purple dark:text-white">{enterpriseName}</strong> : 'enterprise'}
+                  Showing all organisations in {enterpriseName ? <strong className="text-sonar-purple dark:text-white">{enterpriseName}</strong> : 'enterprise'}
                 </span>
               </div>
             )}
@@ -729,9 +729,9 @@ export default function BillingDashboard() {
             /* All organizations summary view – table for easy comparison */
             <div className="space-y-6">
               <div>
-                <h2 className="text-2xl font-bold text-sonar-purple dark:text-white">All organizations</h2>
+                <h2 className="text-2xl font-bold text-sonar-purple dark:text-white">Enterprise Overview</h2>
                 <p className="mt-1 text-gray-600 dark:text-slate-300 font-body">
-                  Summary of billing and usage per organization. Open one to view its dashboard or add several to compare.
+                  Summary of billing and usage per organisation. Open one to view its dashboard or add several to compare.
                 </p>
                 <p className="mt-2 text-sm text-gray-500 dark:text-slate-400 font-body">
                   <span className="inline-block px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200 font-medium mr-1">Reserved</span> = per-org;{' '}
@@ -749,21 +749,21 @@ export default function BillingDashboard() {
                   return (
                     <div className="flex items-center justify-center gap-3 py-16 bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-600 shadow-sm">
                       <div className="animate-spin rounded-full h-10 w-10 border-2 border-sonar-blue border-t-transparent" />
-                      <span className="text-gray-600 dark:text-slate-300 font-body">Loading organization data…</span>
+                      <span className="text-gray-600 dark:text-slate-300 font-body">Loading organisation data…</span>
                     </div>
                   );
                 }
                 if (showEmptyMessage) {
                   return (
                     <div className="py-16 bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-600 text-center shadow-sm">
-                      <p className="text-gray-600 dark:text-slate-300 font-body">No organizations found in enterprise.</p>
+                      <p className="text-gray-600 dark:text-slate-300 font-body">No organisations found in enterprise.</p>
                     </div>
                   );
                 }
                 if (!hasRows) {
                   return (
                     <div className="py-16 bg-white dark:bg-slate-800 rounded-xl border border-gray-200 dark:border-slate-600 text-center shadow-sm">
-                      <p className="text-gray-600 dark:text-slate-300 font-body">Unable to load billing data for organizations. Try refreshing.</p>
+                      <p className="text-gray-600 dark:text-slate-300 font-body">Unable to load billing data for organisations. Try refreshing.</p>
                     </div>
                   );
                 }
@@ -773,7 +773,7 @@ export default function BillingDashboard() {
                     <table className="w-full text-sm">
                       <thead className="bg-gray-50 dark:bg-gray-700/80">
                         <tr>
-                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-slate-200 uppercase tracking-wider">Organization</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-slate-200 uppercase tracking-wider">Organisation</th>
                           <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 dark:text-slate-200 uppercase tracking-wider">Billing</th>
                           <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 dark:text-slate-200 uppercase tracking-wider">Consumed (LOC)</th>
                           <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 dark:text-slate-200 uppercase tracking-wider">Limit (LOC)</th>
@@ -810,6 +810,36 @@ export default function BillingDashboard() {
                               </td>
                               <td className="px-4 py-3 text-right">
                                 <div className="flex items-center justify-end gap-2">
+                                  {(() => {
+                                    const isSelected = selectedOrganizations.some((o) => o.key === org.key);
+                                    return (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const next = [...selectedOrganizations];
+                                          if (isSelected) {
+                                            // Remove from selection (consistent with checkbox behavior)
+                                            const filtered = next.filter((o) => o.key !== org.key);
+                                            setSelectedOrganizations(filtered);
+                                            handleOrganizationsChange(filtered);
+                                          } else {
+                                            // Add to selection (consistent with checkbox behavior - no view switch)
+                                            next.push({ key: org.key, name: org.name, uuid: org.uuid });
+                                            setSelectedOrganizations(next);
+                                            handleOrganizationsChange(next);
+                                          }
+                                        }}
+                                        className={`px-3 py-1.5 text-xs font-medium rounded-lg border-2 transition-colors ${
+                                          isSelected
+                                            ? 'border-gray-300 dark:border-gray-600 text-gray-600 dark:text-slate-400 bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                            : 'border-green-600 dark:border-green-500 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20'
+                                        }`}
+                                        title={isSelected ? 'Remove from multiple organisation selection' : 'Add to multiple organisation selection'}
+                                      >
+                                        {isSelected ? '✓ Selected' : '+ Select'}
+                                      </button>
+                                    );
+                                  })()}
                                   <button
                                     type="button"
                                     onClick={() => {
@@ -819,20 +849,7 @@ export default function BillingDashboard() {
                                     }}
                                     className="btn-sonar-primary px-3 py-1.5 text-xs font-medium rounded-lg"
                                   >
-                                    Open
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      applyViewMode('multi');
-                                      const next = [...selectedOrganizations];
-                                      if (!next.some((o) => o.key === org.key)) next.push({ key: org.key, name: org.name, uuid: org.uuid });
-                                      setSelectedOrganizations(next);
-                                      handleOrganizationsChange(next);
-                                    }}
-                                    className="btn-sonar-primary px-3 py-1.5 text-xs font-medium rounded-lg"
-                                  >
-                                    Add to compare
+                                    Open →
                                   </button>
                                 </div>
                               </td>
@@ -1211,7 +1228,7 @@ export default function BillingDashboard() {
                     <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-gray-200 dark:border-slate-600 overflow-hidden">
                       <div className="px-4 py-3 border-b border-gray-200 dark:border-slate-600">
                         <h3 className="text-lg font-bold text-sonar-purple dark:text-white">
-                          Per-organization breakdown
+                          Per-organisation breakdown
                         </h3>
                         <div className="flex items-start gap-2 mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                           <svg className="w-5 h-5 text-gray-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1223,9 +1240,9 @@ export default function BillingDashboard() {
                                 Reserved
                               </span>
                               <span className="text-gray-600 dark:text-slate-300 ml-2">
-                                = Dedicated capacity per organization (LOC counted separately for each org)
+                                = Dedicated capacity per organisation (LOC counted separately for each org)
                               </span>
-                              <HelpIcon content="In reserved mode, each organization has its own separate LOC limit. The same code in different organizations counts multiple times toward your total. Better for isolated teams." />
+                              <HelpIcon content="In reserved mode, each organisation has its own separate LOC limit. The same code in different organisations counts multiple times toward your total. Better for isolated teams." />
                             </div>
                             <div className="flex items-center">
                               <span className="inline-block px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 font-medium">
@@ -1234,7 +1251,7 @@ export default function BillingDashboard() {
                               <span className="text-gray-600 dark:text-slate-300 ml-2">
                                 = Shared capacity across enterprise (LOC counted once in enterprise total)
                               </span>
-                              <HelpIcon content="In pooled mode, each line of code is counted only once toward your total enterprise license, regardless of how many organizations use it. More cost-effective for shared codebases." />
+                              <HelpIcon content="In pooled mode, each line of code is counted only once toward your total enterprise license, regardless of how many organisations use it. More cost-effective for shared codebases." />
                             </div>
                           </div>
                         </div>
@@ -1243,7 +1260,7 @@ export default function BillingDashboard() {
                         <table className="w-full text-sm">
                           <thead className="bg-gray-50 dark:bg-gray-700">
                             <tr>
-                              <th className="px-4 py-2 text-left text-gray-700 dark:text-slate-200 font-medium">Organization</th>
+                              <th className="px-4 py-2 text-left text-gray-700 dark:text-slate-200 font-medium">Organisation</th>
                               <th className="px-4 py-2 text-left text-gray-700 dark:text-slate-200 font-medium">Billing</th>
                               <th className="px-4 py-2 text-right text-gray-700 dark:text-slate-200 font-medium">Consumed (LOC)</th>
                               <th className="px-4 py-2 text-right text-gray-700 dark:text-slate-200 font-medium">Limit (LOC)</th>
@@ -1362,7 +1379,7 @@ export default function BillingDashboard() {
           {viewMode === 'multi' && selectedOrganizations.length < 2 && (
             <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-4">
               <p className="text-amber-800 dark:text-amber-200 font-body">
-                Select at least 2 organizations above to see the aggregate view and assign projects across them.
+                Select at least 2 organisations above to see the aggregate view and assign projects across them.
               </p>
             </div>
           )}
@@ -1375,7 +1392,7 @@ export default function BillingDashboard() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <p className="text-sm text-gray-700 dark:text-gray-200 font-body">
-                  <span className="font-semibold">Multi-organization view:</span> The plan allowance shown below is the combined total across {selectedOrganizations.length} organization{selectedOrganizations.length === 1 ? '' : 's'}.
+                  <span className="font-semibold">Multiple organisation view:</span> The plan allowance shown below is the combined total across {selectedOrganizations.length} organisation{selectedOrganizations.length === 1 ? '' : 's'}.
                 </p>
               </div>
             )}
