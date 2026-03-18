@@ -69,18 +69,6 @@ export interface ProjectTagsResponse {
   tags: string[];
 }
 
-export interface Portfolio {
-  key: string;
-  name: string;
-  qualifier: 'VW' | 'SVW'; // VW = Portfolio, SVW = Sub-Portfolio
-  visibility: 'public' | 'private';
-}
-
-export interface PortfoliosResponse {
-  components: Portfolio[];
-  paging: Paging;
-}
-
 export interface Measure {
   metric: string;
   value?: string;
@@ -130,21 +118,6 @@ export interface MetricDefinition {
   qualitative: boolean;
   hidden: boolean;
   custom: boolean;
-}
-
-export interface ComponentTreeItem {
-  key: string;
-  name: string;
-  qualifier: string;
-  path?: string;
-  language?: string;
-  measures?: Measure[];
-}
-
-export interface MeasuresComponentTreeResponse {
-  paging: Paging;
-  baseComponent: ComponentTreeItem;
-  components: ComponentTreeItem[];
 }
 
 /**

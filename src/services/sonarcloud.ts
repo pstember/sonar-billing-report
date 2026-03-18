@@ -9,10 +9,8 @@ import type {
   OrganizationsResponse,
   ProjectsSearchResponse,
   ProjectTagsResponse,
-  PortfoliosResponse,
   MeasuresComponentResponse,
   MeasuresHistoryResponse,
-  MeasuresComponentTreeResponse,
   SonarCloudError,
   Project,
   NCLOCDistributionResponse,
@@ -273,24 +271,6 @@ class SonarCloudService {
   }
 
   /**
-   * List portfolios
-   */
-  async listPortfolios(params: {
-    organization?: string;
-  } = {}): Promise<PortfoliosResponse> {
-    const searchParams = new URLSearchParams({
-      qualifiers: 'VW,SVW', // VW = Portfolio, SVW = Sub-Portfolio
-    });
-
-    const org = params.organization || this.config.organization;
-    if (org) searchParams.append('organization', org);
-
-    return this.request<PortfoliosResponse>(
-      `/components/search?${searchParams.toString()}`
-    );
-  }
-
-  /**
    * Get measures for a component (project or portfolio)
    */
   async getComponentMeasures(params: {
@@ -330,30 +310,6 @@ class SonarCloudService {
 
     return this.request<MeasuresHistoryResponse>(
       `/measures/search_history?${searchParams.toString()}`
-    );
-  }
-
-  /**
-   * Get component tree (e.g., projects within a portfolio)
-   */
-  async getComponentTree(params: {
-    component: string;
-    metricKeys?: string[];
-    qualifiers?: string;
-    p?: number;
-    ps?: number;
-  }): Promise<MeasuresComponentTreeResponse> {
-    const searchParams = new URLSearchParams({
-      component: params.component,
-    });
-
-    if (params.metricKeys) searchParams.append('metricKeys', params.metricKeys.join(','));
-    if (params.qualifiers) searchParams.append('qualifiers', params.qualifiers);
-    if (params.p) searchParams.append('p', params.p.toString());
-    if (params.ps) searchParams.append('ps', params.ps.toString());
-
-    return this.request<MeasuresComponentTreeResponse>(
-      `/measures/component_tree?${searchParams.toString()}`
     );
   }
 

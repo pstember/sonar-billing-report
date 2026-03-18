@@ -98,17 +98,6 @@ async function testService() {
     console.error('✗ getProjectTags() failed:', error.message);
   }
 
-  // Test 5: List Portfolios
-  console.log('Testing listPortfolios()...');
-  try {
-    const portfolios = await service.listPortfolios({
-      organization: 'sonar-solutions'
-    });
-    console.log(`✓ Found ${portfolios.paging.total} portfolios/views\n`);
-  } catch (error) {
-    console.error('✗ listPortfolios() failed:', error.message);
-  }
-
   console.log('╔════════════════════════════════════════════════════════╗');
   console.log('║   All Service Tests Passed! ✓                          ║');
   console.log('╚════════════════════════════════════════════════════════╝\n');

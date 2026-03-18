@@ -84,10 +84,9 @@ The application connects to SonarCloud through a built-in proxy server:
 1. Organizations - List all organizations you're a member of
 2. Projects - Search and filter projects
 3. Project Tags - Get all available tags
-4. Portfolios - List all portfolios
-5. Measures - Get metrics (LOC, coverage, bugs, etc.)
-6. History - Get historical metric data
-7. Component Tree - Get file-level details
+4. Measures - Get metrics (LOC, coverage, bugs, etc.)
+5. History - Get historical metric data
+6. Component Tree - Get file-level details
 
 ## Troubleshooting
 

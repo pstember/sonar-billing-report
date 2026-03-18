@@ -32,20 +32,6 @@ export function calculateCost(
 }
 
 /**
- * Effective rate per 1k LOC for cost allocation: from contract value and consumed LOC (from billing API).
- * When you use little of your allowance, this rate is high (full contract spread over used LOC).
- */
-export function getRatePer1kLOC(
-  config: BillingConfiguration,
-  consumedLOC: number
-): number {
-  if (consumedLOC > 0 && config.contractValue != null && config.contractValue > 0) {
-    return (config.contractValue * 1000) / consumedLOC;
-  }
-  return config.defaultRate ?? 0;
-}
-
-/**
  * Price per 1k LOC from the plan (allowance from billing API): contract value ÷ (plan allowance in 1k).
  * This is the nominal rate from your license, not the effective rate on consumed LOC.
  */
@@ -89,29 +75,6 @@ export function calculateTieredCost(
   return totalCost;
 }
 
-/**
- * Calculate cost for language distribution
- */
-export function calculateLanguageDistributionCost(
-  languageDistribution: Record<string, number>,
-  config: BillingConfiguration
-): Record<string, number> {
-  const costs: Record<string, number> = {};
-
-  for (const [language, ncloc] of Object.entries(languageDistribution)) {
-    costs[language] = calculateCost(ncloc, config, language);
-  }
-
-  return costs;
-}
-
-/**
- * Calculate total cost from language costs
- */
-export function getTotalCost(languageCosts: Record<string, number>): number {
-  return Object.values(languageCosts).reduce((sum, cost) => sum + cost, 0);
-}
-
 /** Currency code to symbol for headers/labels. */
 const CURRENCY_SYMBOLS: Record<string, string> = { USD: '$', EUR: '€', GBP: '£' };
 
@@ -133,31 +96,4 @@ export function formatCurrency(
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   }).format(amount);
-}
-
-/**
- * Split cost across multiple teams based on percentage allocation
- */
-export function allocateCostToTeams(
-  totalCost: number,
-  allocations: Array<{ teamName: string; percentage: number }>
-): Record<string, number> {
-  const teamCosts: Record<string, number> = {};
-
-  for (const allocation of allocations) {
-    teamCosts[allocation.teamName] = totalCost * (allocation.percentage / 100);
-  }
-
-  return teamCosts;
-}
-
-/**
- * Calculate cost per project metric (e.g., cost per 1000 LOC)
- */
-export function calculateCostPerKLOC(
-  totalCost: number,
-  totalNLOC: number
-): number {
-  if (totalNLOC === 0) return 0;
-  return (totalCost / totalNLOC) * 1000;
 }

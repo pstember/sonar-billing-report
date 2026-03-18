@@ -2,7 +2,7 @@
  * React Query hooks for SonarCloud API data fetching
  */
 
-import { useQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueries, useMutation } from '@tanstack/react-query';
 import type { Project } from '../types/sonarcloud';
 import SonarCloudService from '../services/sonarcloud';
 import { getAuthConfig } from '../services/db';
@@ -112,57 +112,6 @@ export function useProjectTags(params: {
 }
 
 /**
- * Query: List portfolios
- */
-export function usePortfolios(params: {
-  organization?: string;
-} = {}) {
-  return useQuery({
-    queryKey: ['portfolios', params],
-    queryFn: async () => {
-      const service = await getSonarCloudService();
-      return service.listPortfolios(params);
-    },
-  });
-}
-
-/**
- * Query: Get component measures
- */
-export function useComponentMeasures(params: {
-  component: string;
-  metricKeys: string[];
-}) {
-  return useQuery({
-    queryKey: ['componentMeasures', params],
-    queryFn: async () => {
-      const service = await getSonarCloudService();
-      return service.getComponentMeasures(params);
-    },
-    enabled: !!params.component && params.metricKeys.length > 0,
-  });
-}
-
-/**
- * Query: Get component history
- */
-export function useComponentHistory(params: {
-  component: string;
-  metrics: string[];
-  from?: string;
-  to?: string;
-}) {
-  return useQuery({
-    queryKey: ['componentHistory', params],
-    queryFn: async () => {
-      const service = await getSonarCloudService();
-      return service.getComponentHistory(params);
-    },
-    enabled: !!params.component && params.metrics.length > 0,
-  });
-}
-
-/**
  * Mutation: Validate token
  */
 export function useValidateToken() {
@@ -173,32 +122,6 @@ export function useValidateToken() {
         token,
       });
       return service.validateToken();
-    },
-  });
-}
-
-/**
- * Hook to prefetch multiple projects data
- */
-export function usePrefetchProjects(projectKeys: string[], metricKeys: string[]) {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async () => {
-      const service = await getSonarCloudService();
-      const promises = projectKeys.map(component =>
-        service.getComponentMeasures({ component, metricKeys })
-      );
-      return Promise.all(promises);
-    },
-    onSuccess: (data) => {
-      // Cache each project's data
-      data.forEach((projectData, index) => {
-        queryClient.setQueryData(
-          ['componentMeasures', { component: projectKeys[index], metricKeys }],
-          projectData
-        );
-      });
     },
   });
 }
