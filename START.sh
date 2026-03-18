@@ -7,7 +7,7 @@ echo "╚═══════════════════════�
 echo ""
 
 # Check if dist exists
-if [ ! -d "dist" ]; then
+if [[ ! -d "dist" ]]; then
   echo "📦 Building application..."
   npm run build
   echo ""

@@ -613,12 +613,17 @@ export default function ProjectList({
             </div>
           )}
 
-          {filteredProjects.length === 0 ? (
-            <div className="p-8 text-center text-gray-600 dark:text-slate-300 font-body">
-              <p className="text-lg mb-2">No projects found</p>
-              <p className="text-sm">Try adjusting your filters or search query</p>
-            </div>
-          ) : isAssignmentMode ? (
+          {(() => {
+            if (filteredProjects.length === 0) {
+              return (
+                <div className="p-8 text-center text-gray-600 dark:text-slate-300 font-body">
+                  <p className="text-lg mb-2">No projects found</p>
+                  <p className="text-sm">Try adjusting your filters or search query</p>
+                </div>
+              );
+            }
+            if (isAssignmentMode) {
+              return (
             <table className="w-full text-sm">
               <thead className="bg-gray-100 dark:bg-gray-700 sticky top-0">
                 <tr>
@@ -658,13 +663,7 @@ export default function ProjectList({
                   return (
                     <tr
                       key={project.key}
-                      className={`border-t dark:border-gray-600 ${
-                        hasAllocationError
-                          ? 'bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500'
-                          : isSelected
-                            ? 'bg-sonar-blue/10 dark:bg-sonar-blue/20'
-                            : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                      }`}
+                      className={`border-t dark:border-gray-600 ${getAssignmentRowClass(hasAllocationError, isSelected)}`}
                       role={hasAllocationError ? 'alert' : undefined}
                     >
                       {projectsWithOrg != null && (
@@ -737,7 +736,9 @@ export default function ProjectList({
                 })}
               </tbody>
             </table>
-          ) : (
+              );
+            }
+            return (
             sortedProjects.map((project) => {
               const loc = projectLOCMap.get(project.key) ?? 0;
               const isSelected = selectedProjects.has(project.key);
@@ -797,9 +798,16 @@ export default function ProjectList({
                 </div>
               );
             })
-          )}
+            );
+          })()}
         </div>
       </div>
     </div>
   );
+}
+
+function getAssignmentRowClass(hasAllocationError: boolean, isSelected: boolean): string {
+  if (hasAllocationError) return 'bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500';
+  if (isSelected) return 'bg-sonar-blue/10 dark:bg-sonar-blue/20';
+  return 'hover:bg-gray-50 dark:hover:bg-gray-700/50';
 }

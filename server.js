@@ -6,8 +6,8 @@
 import express from 'express';
 import compression from 'compression';
 import { createProxyMiddleware } from 'http-proxy-middleware';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import open from 'open';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -43,7 +43,7 @@ app.use((req, res, next) => {
 // Manual proxy for api.sonarcloud.io/billing/*
 app.use('/billing', async (req, res) => {
   try {
-    const url = `https://api.sonarcloud.io/billing${req.url}`;
+    const url = new URL(req.url || '/', 'https://api.sonarcloud.io/billing').toString();
 
     const response = await fetch(url, {
       method: req.method,
@@ -66,7 +66,7 @@ app.use('/billing', async (req, res) => {
 // Manual proxy for api.sonarcloud.io/enterprises/*
 app.use('/enterprises', async (req, res) => {
   try {
-    const url = `https://api.sonarcloud.io/enterprises${req.url}`;
+    const url = new URL(req.url || '/', 'https://api.sonarcloud.io/enterprises').toString();
 
     const response = await fetch(url, {
       method: req.method,
@@ -89,7 +89,7 @@ app.use('/enterprises', async (req, res) => {
 // Manual proxy for api.sonarcloud.io/organizations/*
 app.use('/organizations', async (req, res) => {
   try {
-    const url = `https://api.sonarcloud.io/organizations${req.url}`;
+    const url = new URL(req.url || '/', 'https://api.sonarcloud.io/organizations').toString();
 
     const response = await fetch(url, {
       method: req.method,

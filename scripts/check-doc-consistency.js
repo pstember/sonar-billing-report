@@ -3,8 +3,8 @@
  * Run: node scripts/check-doc-consistency.js
  * Exits 0 if OK, 1 if any pattern is found in *.md files.
  */
-import { readFileSync, readdirSync } from 'fs';
-import { join } from 'path';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 
 const ROOT = join(process.cwd(), process.argv[2] || '.');
 
@@ -31,7 +31,7 @@ for (const file of mdFiles) {
   const rel = file.replace(ROOT + '/', '').replace(ROOT + '\\', '');
   const content = readFileSync(file, 'utf8');
   for (const { pattern, message } of FORBIDDEN) {
-    const match = content.match(pattern);
+    const match = pattern.exec(content);
     if (match) {
       console.error(`\x1b[31m${rel}\x1b[0m: ${message}`);
       console.error(`  Match: ${match[0]}`);

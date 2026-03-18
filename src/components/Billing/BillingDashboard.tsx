@@ -3,7 +3,7 @@
  * Integrates all billing components (single-org, multi-org aggregate, or all-org summary)
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { clearAuth, clearCache, getSetting, saveSetting } from '../../services/db';
 import CostCenters from './CostCenters';
@@ -24,15 +24,51 @@ import { useCostCenters, useCostCenterAssignments, useBillingConfig } from '../.
 
 export type ViewMode = 'single' | 'multi' | 'all';
 
+function tableCellContent(rowError: unknown, isPending: boolean, getValue: () => string | number): string {
+  if (rowError) return '—';
+  if (isPending) return '…';
+  const v = getValue();
+  return typeof v === 'number' ? v.toLocaleString() : v;
+}
+
+function renderModeCell(rowError: unknown, isPending: boolean, mode: string | undefined): ReactNode {
+  if (rowError || isPending) return '—';
+  if (mode) return <OrgModeBadge mode={mode} />;
+  return '—';
+}
+
+function OrgModeBadge({ mode }: { mode: string }) {
+  if (mode === 'unreserved') {
+    return (
+      <span className="shrink-0 px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200" title="Pooled LOC — counted once in enterprise total">
+        Pooled
+      </span>
+    );
+  }
+  if (mode === 'absoluteReserved') {
+    return (
+      <span className="shrink-0 px-2 py-0.5 text-xs font-medium rounded-full bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200" title="Reserved LOC — counted per organization in total">
+        Reserved
+      </span>
+    );
+  }
+  return null;
+}
+
 export default function BillingDashboard() {
   const queryClient = useQueryClient();
   const [selectedProjects, setSelectedProjects] = useState<string[]>([]);
   const [selectedOrganization, setSelectedOrganization] = useState<SelectedOrganization | null>(null);
-  const [viewMode, setViewModeState] = useState<ViewMode>('single');
+  const [viewMode, setViewMode] = useState<ViewMode>('single');
   const [selectedOrganizations, setSelectedOrganizations] = useState<SelectedOrganization[]>([]);
 
   const { data: enterpriseOrgs = [] } = useEnterpriseOrganizations();
   const hasMultipleOrgs = enterpriseOrgs.length >= 2;
+
+  const applyViewMode = (mode: ViewMode) => {
+    setViewMode(mode);
+    saveSetting('viewMode', mode).catch(() => {});
+  };
 
   // Load view mode and selected organizations from settings
   useEffect(() => {
@@ -42,21 +78,16 @@ export default function BillingDashboard() {
           getSetting<ViewMode>('viewMode'),
           getSetting<SelectedOrganization[]>('selectedOrganizations'),
         ]);
-        if (mode && (mode === 'single' || mode === 'multi' || mode === 'all')) setViewModeState(mode);
+        if (mode && (mode === 'single' || mode === 'multi' || mode === 'all')) setViewMode(mode);
         if (Array.isArray(orgs) && orgs.length > 0) setSelectedOrganizations(orgs);
       } catch { /* ignore */ }
     };
-    void load();
+    load().catch(() => {});
   }, []);
-
-  const setViewMode = (mode: ViewMode) => {
-    setViewModeState(mode);
-    void saveSetting('viewMode', mode);
-  };
 
   const handleOrganizationsChange = (orgs: SelectedOrganization[]) => {
     setSelectedOrganizations(orgs);
-    void saveSetting('selectedOrganizations', orgs);
+    saveSetting('selectedOrganizations', orgs).catch(() => {});
   };
 
   // Reset selected projects when organization(s) change (intentional sync when org changes)
@@ -70,7 +101,7 @@ export default function BillingDashboard() {
 
   // Single-org: projects and billing
   const { data: allProjects } = useProjects({
-    organization: !isMultiOrg ? selectedOrganization?.key : undefined,
+    organization: isMultiOrg ? undefined : selectedOrganization?.key,
     ps: 100,
   });
 
@@ -491,7 +522,7 @@ export default function BillingDashboard() {
             <div className="flex items-center gap-3">
               <ThemeSelector />
               <button
-                onClick={() => void handleLogout()}
+                onClick={() => { handleLogout(); }}
                 className="btn-sonar-danger px-4 py-2 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg font-body"
               >
                 Logout
@@ -507,7 +538,7 @@ export default function BillingDashboard() {
                     <button
                       key={mode}
                       type="button"
-                      onClick={() => setViewMode(mode)}
+                      onClick={() => applyViewMode(mode)}
                       className={`px-4 py-2 text-sm font-medium font-body transition-colors ${
                         viewMode === mode
                           ? 'bg-sonar-blue text-white'
@@ -556,19 +587,26 @@ export default function BillingDashboard() {
                 Summary of billing and usage per organization. Open one to view its dashboard or add several to compare.
               </p>
               <p className="text-sm text-gray-500 dark:text-slate-400 font-body">
-                <span className="inline-block px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200 font-medium mr-1">Reserved</span> = per-org;
+                <span className="inline-block px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200 font-medium mr-1">Reserved</span> = per-org;{' '}
                 <span className="inline-block px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 font-medium ml-1 mr-1">Pooled</span> = shared (counted once in enterprise total).
               </p>
-              {allOrgsBilling.isLoading ? (
-                <div className="flex items-center justify-center gap-3 py-12 bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-600">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sonar-blue" />
-                  <span className="text-gray-600 dark:text-slate-300">Loading organization data...</span>
-                </div>
-              ) : allOrgsBilling.byOrg.length === 0 ? (
-                <div className="py-12 bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-600 text-center text-gray-600 dark:text-slate-300">
-                  No organizations found.
-                </div>
-              ) : (
+              {(() => {
+                if (allOrgsBilling.isLoading) {
+                  return (
+                    <div className="flex items-center justify-center gap-3 py-12 bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-600">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sonar-blue" />
+                      <span className="text-gray-600 dark:text-slate-300">Loading organization data...</span>
+                    </div>
+                  );
+                }
+                if (allOrgsBilling.byOrg.length === 0) {
+                  return (
+                    <div className="py-12 bg-white dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-slate-600 text-center text-gray-600 dark:text-slate-300">
+                      No organizations found.
+                    </div>
+                  );
+                }
+                return (
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {allOrgsBilling.byOrg.map((org) => (
                     <div
@@ -577,11 +615,7 @@ export default function BillingDashboard() {
                     >
                       <div className="flex items-center gap-2 mb-3 flex-wrap">
                         <h3 className="text-lg font-bold text-sonar-purple dark:text-white truncate min-w-0" title={org.name}>{org.name}</h3>
-                        {org.mode === 'unreserved' ? (
-                          <span className="shrink-0 px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200" title="Pooled LOC — counted once in enterprise total">Pooled</span>
-                        ) : org.mode === 'absoluteReserved' ? (
-                          <span className="shrink-0 px-2 py-0.5 text-xs font-medium rounded-full bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200" title="Reserved LOC — counted per organization in total">Reserved</span>
-                        ) : null}
+                        <OrgModeBadge mode={org.mode ?? ''} />
                       </div>
                       <dl className="space-y-1 text-sm">
                         <div className="flex justify-between">
@@ -605,9 +639,9 @@ export default function BillingDashboard() {
                         <button
                           type="button"
                           onClick={() => {
-                            setViewMode('single');
+                            applyViewMode('single');
                             setSelectedOrganization({ key: org.key, name: org.name, uuid: org.uuid });
-                            void saveSetting('selectedOrganization', org.key);
+                            saveSetting('selectedOrganization', org.key).catch(() => {});
                           }}
                           className="btn-sonar-primary px-3 py-1.5 text-sm rounded-lg"
                         >
@@ -616,7 +650,7 @@ export default function BillingDashboard() {
                         <button
                           type="button"
                           onClick={() => {
-                            setViewMode('multi');
+                            applyViewMode('multi');
                             const next = [...selectedOrganizations];
                             if (!next.some((o) => o.key === org.key)) next.push({ key: org.key, name: org.name, uuid: org.uuid });
                             setSelectedOrganizations(next);
@@ -630,7 +664,8 @@ export default function BillingDashboard() {
                     </div>
                   ))}
                 </div>
-              )}
+                );
+              })()}
             </div>
           ) : (
             <>
@@ -873,25 +908,19 @@ export default function BillingDashboard() {
                                 <tr key={org.key} className="hover:bg-gray-50 dark:hover:bg-slate-700/50">
                                   <td className="px-4 py-2 font-medium text-gray-900 dark:text-white">{org.name}</td>
                                   <td className="px-4 py-2">
-                                    {rowError || isPending ? '—' : data?.mode === 'unreserved' ? (
-                                      <span className="inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200" title="Pooled — counted once in total">Pooled</span>
-                                    ) : data?.mode === 'absoluteReserved' ? (
-                                      <span className="inline-block px-2 py-0.5 text-xs font-medium rounded-full bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200" title="Reserved — counted per org in total">Reserved</span>
-                                    ) : (
-                                      '—'
-                                    )}
+                                    {renderModeCell(rowError, isPending, data?.mode)}
                                   </td>
                                   <td className="px-4 py-2 text-right tabular-nums text-gray-700 dark:text-slate-300">
-                                    {rowError ? '—' : isPending ? '…' : (data?.consumed ?? 0).toLocaleString()}
+                                    {tableCellContent(rowError, isPending, () => (data?.consumed ?? 0))}
                                   </td>
                                   <td className="px-4 py-2 text-right tabular-nums text-gray-700 dark:text-slate-300">
-                                    {rowError ? '—' : isPending ? '…' : (data?.limit ?? 0).toLocaleString()}
+                                    {tableCellContent(rowError, isPending, () => (data?.limit ?? 0))}
                                   </td>
                                   <td className="px-4 py-2 text-right tabular-nums text-gray-700 dark:text-slate-300">
-                                    {rowError ? '—' : isPending ? '…' : (data?.usagePercent ?? 0).toFixed(1)}%
+                                    {tableCellContent(rowError, isPending, () => `${(data?.usagePercent ?? 0).toFixed(1)}%`)}
                                   </td>
                                   <td className="px-4 py-2 text-right tabular-nums text-gray-600 dark:text-slate-400">
-                                    {rowError ? '—' : isPending ? '…' : `${privateCount} / ${publicCount}`}
+                                    {tableCellContent(rowError, isPending, () => `${privateCount} / ${publicCount}`)}
                                   </td>
                                 </tr>
                               );
@@ -986,7 +1015,7 @@ export default function BillingDashboard() {
           <div className="space-y-6">
             {isMultiOrg && (
               <p className="text-sm text-gray-600 dark:text-slate-400 font-body">
-                Plan allowance below is aggregated across {selectedOrganizations.length} organization{selectedOrganizations.length !== 1 ? 's' : ''}.
+                Plan allowance below is aggregated across {selectedOrganizations.length} organization{selectedOrganizations.length === 1 ? '' : 's'}.
               </p>
             )}
             <CostCalculator planAllowanceLOC={limit} />
@@ -1000,19 +1029,19 @@ export default function BillingDashboard() {
             </p>
             <div className="mt-6 flex gap-4 flex-wrap">
               <button
-                onClick={() => void handleExportExcel()}
+                onClick={() => { handleExportExcel(); }}
                 className="btn-sonar-primary px-4 py-2 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg font-body"
               >
                 Export to Excel
               </button>
               <button
-                onClick={() => void handleExportCSV()}
+                onClick={() => { handleExportCSV(); }}
                 className="btn-sonar-primary px-4 py-2 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg font-body"
               >
                 Export to CSV
               </button>
               <button
-                onClick={() => void handleExportPDF()}
+                onClick={() => { handleExportPDF(); }}
                 className="btn-sonar-accent px-4 py-2 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg font-body"
               >
                 Generate PDF Report
