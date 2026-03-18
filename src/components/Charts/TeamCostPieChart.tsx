@@ -10,6 +10,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recha
 import { formatCurrencyParts } from '../../utils/costCalculations';
 import { formatLargeNumber } from '../../utils/dataTransformers';
 import { PIE_COLORS, PIE_UNASSIGNED_COLOR, PIE_UNUSED_COLOR } from '../../constants/chartColors';
+import { HelpIcon } from '../Shared/HelpIcon';
 
 export interface CostCenterSegment { name: string; value: number; cost?: number; licenseShare?: number }
 
@@ -125,6 +126,7 @@ export default function TeamCostPieChart({
           </h3>
           <div className="flex items-center gap-1.5">
             <span className="text-xs text-gray-500 dark:text-slate-300 font-body">View</span>
+            <HelpIcon content="Toggle between viewing all code in your license (including unused capacity) vs only code you're actively using." />
             <div className="inline-flex gap-px rounded bg-slate-100 dark:bg-slate-700">
               <button
                 type="button"
@@ -157,10 +159,10 @@ export default function TeamCostPieChart({
         </div>
         <p className="text-sm text-gray-600 dark:text-slate-300 font-body font-medium">
           {showUnused === 'all'
-            ? 'Cost centers + unassigned (in-scope) + unused allowance.'
+            ? 'Shows all code in your license: assigned to cost centers, unassigned (in-scope projects), and unused allowance.'
             : onlyUnassigned
               ? 'All in-scope LOC are unassigned. Assign projects to cost centers to see distribution.'
-              : 'Cost centers + unassigned LOC in scope.'}
+              : 'Shows only code you\'re actively using: assigned to cost centers plus unassigned in-scope projects.'}
         </p>
       </div>
       <div className="flex flex-col gap-4">
@@ -241,6 +243,25 @@ export default function TeamCostPieChart({
             </tbody>
           </table>
         </div>
+
+        {/* Insight Banner for High Unassigned Percentage */}
+        {(() => {
+          const totalLoc = pieData.reduce((sum, entry) => sum + entry.value, 0);
+          const unassignedPercent = totalLoc > 0 ? (unallocatedLoc / totalLoc) * 100 : 0;
+          if (unassignedPercent > 30) {
+            return (
+              <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 rounded">
+                <p className="font-semibold text-sm text-gray-900 dark:text-white">
+                  ⚠️ {Math.round(unassignedPercent)}% unassigned
+                </p>
+                <p className="text-xs text-gray-600 dark:text-slate-300 mt-1">
+                  Assign these projects to teams for accurate cost tracking.
+                </p>
+              </div>
+            );
+          }
+          return null;
+        })()}
       </div>
     </div>
   );

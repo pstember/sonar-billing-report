@@ -43,33 +43,33 @@ describe('TokenInput', () => {
 
   it('renders token and enterprise key inputs and submit button', () => {
     render(<TokenInput onSuccess={onSuccess} />);
-    expect(screen.getByLabelText(/Personal Access Token/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/SonarCloud Access Token/)).toBeInTheDocument();
     expect(screen.getByLabelText(/Enterprise Key/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Connect to SonarCloud/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Continue to Dashboard/ })).toBeInTheDocument();
   });
 
   it('shows validation error when token is empty on submit', async () => {
     const user = userEvent.setup();
     render(<TokenInput onSuccess={onSuccess} />);
     await user.type(screen.getByLabelText(/Enterprise Key/), 'my-enterprise');
-    await user.click(screen.getByRole('button', { name: /Connect to SonarCloud/ }));
+    await user.click(screen.getByRole('button', { name: /Continue to Dashboard/ }));
     await screen.findByText(/Please enter your SonarCloud token/);
   });
 
   it('shows validation error when enterprise key is empty on submit', async () => {
     const user = userEvent.setup();
     render(<TokenInput onSuccess={onSuccess} />);
-    await user.type(screen.getByLabelText(/Personal Access Token/), 'my-token');
-    await user.click(screen.getByRole('button', { name: /Connect to SonarCloud/ }));
+    await user.type(screen.getByLabelText(/SonarCloud Access Token/), 'my-token');
+    await user.click(screen.getByRole('button', { name: /Continue to Dashboard/ }));
     await screen.findByText(/Please enter your Enterprise Key/);
   });
 
   it('calls onSuccess after successful validation and save', async () => {
     const user = userEvent.setup();
     render(<TokenInput onSuccess={onSuccess} />);
-    await user.type(screen.getByLabelText(/Personal Access Token/), 'my-token');
+    await user.type(screen.getByLabelText(/SonarCloud Access Token/), 'my-token');
     await user.type(screen.getByLabelText(/Enterprise Key/), 'my-enterprise');
-    await user.click(screen.getByRole('button', { name: /Connect to SonarCloud/ }));
+    await user.click(screen.getByRole('button', { name: /Continue to Dashboard/ }));
     await waitFor(() => expect(onSuccess).toHaveBeenCalled());
   });
 });

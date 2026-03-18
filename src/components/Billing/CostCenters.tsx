@@ -327,50 +327,27 @@ export default function CostCenters({ organization, onProjectsSelected, projects
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      {/* Cost Centers Section - First */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <h2 className="text-2xl font-bold text-sonar-purple dark:text-white mb-2">Projects in scope &amp; assignments</h2>
-        <p className="text-sm text-gray-600 dark:text-slate-300 mb-4">
-          Assign projects to cost centers; assigned projects define scope and LOC roll-up.
-        </p>
-        {bulkSuccessMessage && (
-          <output
-            aria-live="polite"
-            className="block mb-4 p-3 bg-green-50 dark:bg-green-900/20 border-l-4 border-green-600 rounded text-sm text-gray-800 dark:text-gray-200 font-body"
-          >
-            {bulkSuccessMessage}
-          </output>
-        )}
-        <ProjectList
-          organization={organization}
-          projectsWithOrg={projectsWithOrg}
-          preferredNclocMap={mergedNclocMapForList}
-          onProjectsSelected={() => { /* no-op */ }}
-          selectedProjectKeys={selectedProjectKeysInScope}
-          costCenters={costCenters}
-          assignments={allAssignments}
-          onSaveProjectAssignment={(projectKey, costCenterId, allocationPercentage) => void handleSaveProjectAssignment(projectKey, costCenterId, allocationPercentage)}
-          onClearProjectAssignment={(projectKey, costCenterId) => void handleClearProjectAssignment(projectKey, costCenterId)}
-          onBulkAssign={(a, b, c) => void handleBulkAssign(a, b, c)}
-          onBulkActionSuccess={setBulkSuccessMessage}
-        />
-
-        <div className="flex justify-between items-center mb-4 mt-8">
-          <h2 className="text-2xl font-bold text-sonar-purple dark:text-white">Cost center recap</h2>
+        <div className="flex justify-between items-center mb-4">
+          <div>
+            <h2 className="text-2xl font-bold text-sonar-purple dark:text-white">Cost Centers</h2>
+            <p className="text-sm text-gray-600 dark:text-slate-300 mt-1">
+              Create teams or departments to track code ownership and allocate costs.
+            </p>
+          </div>
           <button
             type="button"
             onClick={() => setShowAddCC(true)}
-            className="btn-sonar-accent px-4 py-2 rounded-lg"
+            className="btn-sonar-primary px-4 py-2 rounded-lg"
           >
-            Add cost center
+            + Add Cost Center
           </button>
         </div>
-        <p className="text-sm text-gray-600 dark:text-slate-300 mb-3">
-          Assign projects above with the checkboxes. Total LOC below rolls up from those project assignments.
-        </p>
 
         {showAddCC && (
-          <form onSubmit={(e) => { e.preventDefault(); void handleSaveCostCenter(e); }} className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+          <form onSubmit={(e) => { e.preventDefault(); void handleSaveCostCenter(e); }} className="mb-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label htmlFor="cost-center-name" className="block text-sm font-medium mb-1 text-sonar-purple dark:text-white">Name</label>
@@ -410,7 +387,7 @@ export default function CostCenters({ organization, onProjectsSelected, projects
                 <tr>
                   <th className="px-3 py-2 text-left text-gray-700 dark:text-gray-300">Cost center</th>
                   <th className="px-3 py-2 text-left text-gray-700 dark:text-gray-300">Projects</th>
-                  <th className="px-3 py-2 text-right text-gray-700 dark:text-gray-300">Total LOC (roll-up)</th>
+                  <th className="px-3 py-2 text-right text-gray-700 dark:text-gray-300">Total Lines of Code</th>
                   <th className="px-3 py-2 text-left text-gray-700 dark:text-gray-300">Actions</th>
                 </tr>
               </thead>
@@ -478,9 +455,52 @@ export default function CostCenters({ organization, onProjectsSelected, projects
           </div>
         ) : (
           !showAddCC && (
-            <p className="py-4 text-gray-600 dark:text-slate-300 text-sm">Create a cost center, then assign projects in the table above using the checkboxes.</p>
+            <div className="py-8 px-6 bg-gray-50 dark:bg-gray-700/50 rounded-lg text-center">
+              <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
+                No cost centers yet
+              </h4>
+              <p className="text-sm text-gray-600 dark:text-slate-300 mb-4">
+                Cost centers represent teams or departments. Once created, assign projects below to track ownership.
+              </p>
+              <button
+                onClick={() => setShowAddCC(true)}
+                className="btn-sonar-primary px-5 py-2 rounded-lg"
+              >
+                + Create First Cost Center
+              </button>
+            </div>
           )
         )}
+      </div>
+
+      {/* Project Assignment Section - Second */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <h2 className="text-2xl font-bold text-sonar-purple dark:text-white mb-2">Assign Projects to Cost Centers</h2>
+        <p className="text-sm text-gray-600 dark:text-slate-300 mb-4">
+          Connect projects to the cost centers that own them. This helps you track code ownership and calculate accurate costs for each cost center. Projects can be split across multiple cost centers—just ensure ownership percentages add up to 100%.
+        </p>
+        {bulkSuccessMessage && (
+          <output
+            aria-live="polite"
+            className="block mb-4 p-3 bg-green-50 dark:bg-green-900/20 border-l-4 border-green-600 rounded text-sm text-gray-800 dark:text-gray-200 font-body"
+          >
+            {bulkSuccessMessage}
+          </output>
+        )}
+        <ProjectList
+          organization={organization}
+          projectsWithOrg={projectsWithOrg}
+          preferredNclocMap={mergedNclocMapForList}
+          onProjectsSelected={() => { /* no-op */ }}
+          selectedProjectKeys={selectedProjectKeysInScope}
+          costCenters={costCenters}
+          assignments={allAssignments}
+          onSaveProjectAssignment={(projectKey, costCenterId, allocationPercentage) => void handleSaveProjectAssignment(projectKey, costCenterId, allocationPercentage)}
+          onClearProjectAssignment={(projectKey, costCenterId) => void handleClearProjectAssignment(projectKey, costCenterId)}
+          onBulkAssign={(a, b, c) => void handleBulkAssign(a, b, c)}
+          onBulkActionSuccess={setBulkSuccessMessage}
+          showWrapper={false}
+        />
       </div>
     </div>
   );

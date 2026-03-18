@@ -115,6 +115,8 @@ function Group({
 
 export default function LoadProgressBar() {
   const { completed, total, percent, isComplete, items, fetching } = useDashboardLoadProgress();
+  const [showDetails, setShowDetails] = useState(false);
+
   if (total === 0 || isComplete) return null;
 
   const byCategory: Record<LoadProgressCategory, LoadProgressItem[]> = { enterprise: [], billing: [], projects: [], other: [] };
@@ -124,7 +126,7 @@ export default function LoadProgressBar() {
   return (
     <div className="bg-white dark:bg-slate-800 border-b border-gray-200 dark:border-slate-600 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 mb-2">
           <progress
             value={percent}
             max={100}
@@ -145,16 +147,31 @@ export default function LoadProgressBar() {
               </span>
             )}
           </span>
+          {items.length > 0 && (
+            <button
+              onClick={() => setShowDetails(!showDetails)}
+              className="text-xs text-sonar-blue hover:underline shrink-0"
+            >
+              {showDetails ? 'Hide' : 'Show'} details
+            </button>
+          )}
         </div>
-        <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
-          Only the &quot;fetching&quot; count are actual network requests; the rest are from cache.
-        </p>
-        {items.length > 0 && (
-          <ul className="mt-2 space-y-0 border-t border-gray-100 dark:border-slate-700 pt-2">
-            {order.filter((c) => byCategory[c]?.length).map((category) => (
-              <Group key={category} category={category} items={byCategory[category]} />
-            ))}
-          </ul>
+        {!showDetails && (
+          <p className="text-xs text-gray-500 dark:text-slate-400">
+            Only the &quot;fetching&quot; count are actual network requests; the rest are from cache.
+          </p>
+        )}
+        {showDetails && items.length > 0 && (
+          <>
+            <p className="text-xs text-gray-500 dark:text-slate-400 mb-2">
+              Only the &quot;fetching&quot; count are actual network requests; the rest are from cache.
+            </p>
+            <ul className="mt-2 space-y-0 border-t border-gray-100 dark:border-slate-700 pt-2">
+              {order.filter((c) => byCategory[c]?.length).map((category) => (
+                <Group key={category} category={category} items={byCategory[category]} />
+              ))}
+            </ul>
+          </>
         )}
       </div>
     </div>

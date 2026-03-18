@@ -101,13 +101,22 @@ export default function TokenInput({ onSuccess }: TokenInputProps) {
             </p>
           </div>
 
+          <div className="mb-6 p-4 bg-sonar-blue/5 border-l-4 border-sonar-blue rounded">
+            <h3 className="font-semibold text-sm mb-2 text-gray-900 dark:text-white">What you'll need</h3>
+            <ul className="text-xs space-y-1 text-gray-600 dark:text-slate-300">
+              <li>✓ A SonarCloud token with read access</li>
+              <li>✓ Your enterprise key (found in Admin settings)</li>
+              <li>✓ 2 minutes to set up your first cost centers</li>
+            </ul>
+          </div>
+
           <form onSubmit={(e) => { e.preventDefault(); void handleSubmit(e); }} className="space-y-6">
             <div>
               <label
                 htmlFor="token"
                 className="block text-sm font-medium text-sonar-purple dark:text-white mb-2 font-body"
               >
-                Personal Access Token *
+                SonarCloud Access Token *
               </label>
               <input
                 id="token"
@@ -119,7 +128,16 @@ export default function TokenInput({ onSuccess }: TokenInputProps) {
                 disabled={isValidating}
               />
               <p className="mt-1 text-sm text-gray-600 dark:text-slate-300 font-body">
-                Generate from: Account → Security → Tokens
+                Need read access to: organizations, projects, and measures
+                <br />
+                <a
+                  href="https://sonarcloud.io/account/security"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sonar-blue hover:underline"
+                >
+                  Generate token at sonarcloud.io/account/security →
+                </a>
               </p>
             </div>
 
@@ -140,7 +158,9 @@ export default function TokenInput({ onSuccess }: TokenInputProps) {
                 disabled={isValidating}
               />
               <p className="mt-1 text-sm text-gray-600 dark:text-slate-300 font-body">
-                Identifies your enterprise and is used to filter the list of organizations in the dashboard.
+                Your enterprise identifier (e.g., "acme-corp")
+                <br />
+                Find it in SonarCloud under Administration → Enterprise
               </p>
             </div>
 
@@ -155,7 +175,7 @@ export default function TokenInput({ onSuccess }: TokenInputProps) {
               disabled={isValidating}
               className="btn-sonar-primary w-full py-3 px-4 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
             >
-              {isValidating ? 'Validating...' : 'Connect to SonarCloud'}
+              {isValidating ? 'Connecting...' : 'Continue to Dashboard →'}
             </button>
           </form>
 

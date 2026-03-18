@@ -23,6 +23,9 @@ import { useProjects, useProjectsForOrganizations } from '../../hooks/useSonarCl
 import { useBillingOverview, useMultiOrgBillingOverview, useEnterpriseOrganizations } from '../../hooks/useBillingData';
 import { filterAssignmentsInScope } from '../../utils/assignmentScope';
 import { useCostCenters, useCostCenterAssignments, useBillingConfig } from '../../hooks/useBilling';
+import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
+import { Toast } from '../Shared/Toast';
+import { HelpIcon } from '../Shared/HelpIcon';
 
 export type ViewMode = 'single' | 'multi' | 'all';
 
@@ -63,6 +66,21 @@ export default function BillingDashboard() {
   const [selectedOrganization, setSelectedOrganization] = useState<SelectedOrganization | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('single');
   const [selectedOrganizations, setSelectedOrganizations] = useState<SelectedOrganization[]>([]);
+  const [showLOCExplainer, setShowLOCExplainer] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingSteps, setOnboardingSteps] = useState({
+    createdCostCenter: false,
+    assignedProjects: false,
+    setContractValue: false,
+    viewedBreakdown: false,
+  });
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [celebrationMilestones, setCelebrationMilestones] = useState({
+    firstCostCenter: false,
+    fullAllocation: false,
+    tenthExport: false,
+    exportCount: 0,
+  });
 
   const { data: enterpriseData, isLoading: isLoadingEnterprise } = useEnterpriseOrganizations();
   const enterpriseOrgs = enterpriseData?.organizations ?? [];
@@ -78,12 +96,18 @@ export default function BillingDashboard() {
   useEffect(() => {
     const load = async () => {
       try {
-        const [mode, orgs] = await Promise.all([
+        const [mode, orgs, onboardingCompleted, steps, milestones] = await Promise.all([
           getSetting<ViewMode>('viewMode'),
           getSetting<SelectedOrganization[]>('selectedOrganizations'),
+          getSetting<boolean>('onboardingCompleted'),
+          getSetting<typeof onboardingSteps>('onboardingSteps'),
+          getSetting<typeof celebrationMilestones>('celebrationMilestones'),
         ]);
         if (mode && (mode === 'single' || mode === 'multi' || mode === 'all')) setViewMode(mode);
         if (Array.isArray(orgs) && orgs.length > 0) setSelectedOrganizations(orgs);
+        if (!onboardingCompleted) setShowOnboarding(true);
+        if (steps) setOnboardingSteps(steps);
+        if (milestones) setCelebrationMilestones(milestones);
       } catch { /* ignore */ }
     };
     load().catch(() => {});
@@ -168,6 +192,74 @@ export default function BillingDashboard() {
   const { data: costCenters = [] } = useCostCenters();
   const { data: allAssignments = [] } = useCostCenterAssignments();
   const { data: billingConfig } = useBillingConfig();
+
+  // Auto-check onboarding steps based on data
+  useEffect(() => {
+    if (!showOnboarding) return;
+    const newSteps = { ...onboardingSteps };
+    let changed = false;
+
+    if (costCenters.length > 0 && !newSteps.createdCostCenter) {
+      newSteps.createdCostCenter = true;
+      changed = true;
+    }
+    if (allAssignments.length >= 5 && !newSteps.assignedProjects) {
+      newSteps.assignedProjects = true;
+      changed = true;
+    }
+    if (billingConfig?.contractValue && !newSteps.setContractValue) {
+      newSteps.setContractValue = true;
+      changed = true;
+    }
+
+    if (changed) {
+      setOnboardingSteps(newSteps);
+      saveSetting('onboardingSteps', newSteps).catch(() => {});
+    }
+  }, [costCenters.length, allAssignments.length, billingConfig?.contractValue, showOnboarding, onboardingSteps]);
+
+  // Check for celebration milestones
+  useEffect(() => {
+    const checkMilestones = async () => {
+      const newMilestones = { ...celebrationMilestones };
+      let changed = false;
+
+      // First cost center created
+      if (costCenters.length === 1 && !celebrationMilestones.firstCostCenter) {
+        newMilestones.firstCostCenter = true;
+        changed = true;
+        setToastMessage('🎉 You created your first cost center! Now assign some projects to see the magic happen.');
+      }
+
+      if (changed) {
+        setCelebrationMilestones(newMilestones);
+        await saveSetting('celebrationMilestones', newMilestones);
+      }
+    };
+    checkMilestones().catch(() => {});
+  }, [costCenters.length, celebrationMilestones]);
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts([
+    {
+      key: '1',
+      ctrlOrCmd: true,
+      action: () => applyViewMode('single'),
+      description: 'Switch to Single Org view',
+    },
+    {
+      key: '2',
+      ctrlOrCmd: true,
+      action: () => applyViewMode('multi'),
+      description: 'Switch to Multi-Org view',
+    },
+    {
+      key: '3',
+      ctrlOrCmd: true,
+      action: () => applyViewMode('all'),
+      description: 'Switch to All Orgs view',
+    },
+  ]);
 
   const allPrivateProjectKeys = useMemo(
     () =>
@@ -492,19 +584,35 @@ export default function BillingDashboard() {
     };
   }, [billingConfig?.currency, isMultiOrg]);
 
+  const trackExport = async () => {
+    const newMilestones = { ...celebrationMilestones };
+    newMilestones.exportCount += 1;
+
+    if (newMilestones.exportCount === 10 && !newMilestones.tenthExport) {
+      newMilestones.tenthExport = true;
+      setToastMessage('🏆 That\'s your 10th export! You\'re a billing pro.');
+    }
+
+    setCelebrationMilestones(newMilestones);
+    await saveSetting('celebrationMilestones', newMilestones);
+  };
+
   const handleExportCSV = () => {
     if (!billingRows || billingRows.length === 0) return;
     exportToCSV(buildExportRows(billingRows, selectedLOC, billingTotals), `billing-details-${new Date().toISOString().split('T')[0]}.csv`);
+    trackExport().catch(() => {});
   };
 
   const handleExportExcel = async () => {
     if (!billingRows || billingRows.length === 0) return;
     await exportToExcel(buildExportRows(billingRows, selectedLOC, billingTotals), `billing-details-${new Date().toISOString().split('T')[0]}.xlsx`, 'Billing Details');
+    await trackExport();
   };
 
   const handleExportPDF = async () => {
     if (!billingRows || billingRows.length === 0) return;
     await exportToPDF(buildExportRows(billingRows, selectedLOC, billingTotals), `billing-report-${new Date().toISOString().split('T')[0]}.pdf`);
+    await trackExport();
   };
   const selectedCount = selectedProjects.length;
   /** Number of projects assigned (to cost centers) that are in the currently selected org(s). Used for Projects Assigned card. */
@@ -540,9 +648,14 @@ export default function BillingDashboard() {
       <header className="bg-white dark:bg-slate-800 shadow-md border-b-2 border-sonar-blue/10 dark:border-slate-700">
         <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center mb-4">
-            <h1 className="text-3xl font-bold text-sonar-purple dark:text-white">
-              SonarCloud Billing Dashboard
-            </h1>
+            <div>
+              <h1 className="text-3xl font-bold text-sonar-purple dark:text-white">
+                SonarCloud Billing Dashboard
+              </h1>
+              <p className="text-sm text-gray-600 dark:text-slate-300 mt-1">
+                Allocate code ownership and calculate costs across teams
+              </p>
+            </div>
             <div className="flex items-center gap-3">
               <ThemeSelector />
               <button
@@ -557,22 +670,33 @@ export default function BillingDashboard() {
             <div className="flex items-center gap-4">
               <span className="text-xs font-bold text-sonar-purple dark:text-white uppercase tracking-wide">View</span>
               <div className="flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
-                {(['single', 'multi', 'all'] as const).map((mode) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    onClick={() => applyViewMode(mode)}
-                    className={`px-4 py-2 text-sm font-medium font-body transition-colors ${
-                      viewMode === mode
-                        ? 'bg-sonar-blue text-white'
-                        : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                    }`}
-                  >
-                    {mode === 'single' && 'Single organization'}
-                    {mode === 'multi' && 'Multiple organizations'}
-                    {mode === 'all' && 'All organizations'}
-                  </button>
-                ))}
+                {(['single', 'multi', 'all'] as const).map((mode) => {
+                  const labels = {
+                    single: 'Single Organization',
+                    multi: 'Compare Organizations',
+                    all: 'All Organizations'
+                  };
+                  const tooltips = {
+                    single: 'View one organization with full cost allocation details',
+                    multi: 'Compare metrics across selected organizations',
+                    all: 'High-level overview of all organizations in your enterprise'
+                  };
+                  return (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => applyViewMode(mode)}
+                      title={tooltips[mode]}
+                      className={`px-4 py-2 text-sm font-medium font-body transition-colors ${
+                        viewMode === mode
+                          ? 'bg-sonar-blue text-white'
+                          : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      {labels[mode]}
+                    </button>
+                  );
+                })}
               </div>
             </div>
             {viewMode === 'single' && (
@@ -706,7 +830,7 @@ export default function BillingDashboard() {
                                       setSelectedOrganizations(next);
                                       handleOrganizationsChange(next);
                                     }}
-                                    className="btn-sonar-accent px-3 py-1.5 text-xs font-medium rounded-lg"
+                                    className="btn-sonar-primary px-3 py-1.5 text-xs font-medium rounded-lg"
                                   >
                                     Add to compare
                                   </button>
@@ -724,14 +848,132 @@ export default function BillingDashboard() {
             </div>
           ) : (
             <>
+              {/* Onboarding Checklist */}
+              {showOnboarding && (
+                <div className="bg-gradient-to-r from-sonar-blue to-sonar-purple text-white rounded-xl p-6 mb-6 shadow-lg">
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <h3 className="text-xl font-bold">Welcome! Let's get you set up 👋</h3>
+                      <p className="text-sm opacity-90 mt-1">4 quick steps to your first billing report</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setShowOnboarding(false);
+                        saveSetting('onboardingCompleted', true).catch(() => {});
+                      }}
+                      className="text-white/80 hover:text-white text-2xl leading-none"
+                      aria-label="Close onboarding checklist"
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={onboardingSteps.createdCostCenter}
+                        readOnly
+                        className="w-5 h-5 rounded"
+                      />
+                      <span className={onboardingSteps.createdCostCenter ? 'line-through opacity-70' : ''}>
+                        Create your first cost center
+                      </span>
+                    </label>
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={onboardingSteps.assignedProjects}
+                        readOnly
+                        className="w-5 h-5 rounded"
+                      />
+                      <span className={onboardingSteps.assignedProjects ? 'line-through opacity-70' : ''}>
+                        Assign 5+ projects
+                      </span>
+                    </label>
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={onboardingSteps.setContractValue}
+                        readOnly
+                        className="w-5 h-5 rounded"
+                      />
+                      <span className={onboardingSteps.setContractValue ? 'line-through opacity-70' : ''}>
+                        Set contract value
+                      </span>
+                    </label>
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={onboardingSteps.viewedBreakdown}
+                        onChange={(e) => {
+                          const newSteps = { ...onboardingSteps, viewedBreakdown: e.target.checked };
+                          setOnboardingSteps(newSteps);
+                          saveSetting('onboardingSteps', newSteps).catch(() => {});
+                        }}
+                        className="w-5 h-5 rounded"
+                      />
+                      <span className={onboardingSteps.viewedBreakdown ? 'line-through opacity-70' : ''}>
+                        View cost breakdown (scroll to Billing Details below)
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {/* LOC Metrics Explainer Panel */}
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+                <button
+                  onClick={() => setShowLOCExplainer(!showLOCExplainer)}
+                  className="flex items-center justify-between w-full text-left"
+                >
+                  <h4 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                    <svg className="w-5 h-5 text-sonar-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Understanding your LOC metrics
+                  </h4>
+                  <svg className={`w-4 h-4 transition-transform ${showLOCExplainer ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {showLOCExplainer && (
+                  <div className="mt-4 space-y-3 text-sm">
+                    <div className="border-l-2 border-sonar-blue pl-3">
+                      <strong className="text-sonar-purple dark:text-white">Contracted LOC:</strong>
+                      <p className="text-gray-600 dark:text-slate-300 mt-1">
+                        The total capacity in your SonarCloud license (e.g., 5 million lines). This is what you're paying for.
+                      </p>
+                    </div>
+                    <div className="border-l-2 border-amber-500 pl-3">
+                      <strong className="text-sonar-purple dark:text-white">Consumed LOC:</strong>
+                      <p className="text-gray-600 dark:text-slate-300 mt-1">
+                        Actual code in your private projects (what you're actively using from your license).
+                      </p>
+                    </div>
+                    <div className="border-l-2 border-teal-500 pl-3">
+                      <strong className="text-sonar-purple dark:text-white">Allocated LOC:</strong>
+                      <p className="text-gray-600 dark:text-slate-300 mt-1">
+                        Code assigned to specific cost centers in this tool (for internal chargeback and tracking).
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Always-Visible Billing Metrics */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     {/* Projects Assigned - donut with count in center (only projects in selected org(s)) */}
                     <div className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl shadow-xl border-2 border-gray-100 dark:border-gray-700 p-6 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
                       <div className="flex items-center justify-between mb-3 min-h-[2.75rem]">
-                        <h3 className="text-xs font-bold text-sonar-purple dark:text-white font-body uppercase tracking-wider">
-                          Projects Assigned
-                        </h3>
+                        <div>
+                          <h3 className="text-xs font-bold text-sonar-purple dark:text-white font-body uppercase tracking-wider">
+                            Projects in Scope
+                          </h3>
+                          <p className="text-[10px] text-gray-500 dark:text-slate-400 mt-0.5">
+                            Assigned to cost centers
+                          </p>
+                        </div>
                         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-600 flex items-center justify-center shadow-lg">
                           <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -777,9 +1019,14 @@ export default function BillingDashboard() {
                     {/* LOC attributed to cost centers - donut with value in center */}
                     <div className="bg-gradient-to-br from-white to-blue-50 dark:from-gray-800 dark:to-blue-950 rounded-2xl shadow-xl border-2 border-blue-100 dark:border-blue-900 p-6 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
                       <div className="flex items-center justify-between mb-3 min-h-[2.75rem]">
-                        <h3 className="text-xs font-bold text-sonar-purple dark:text-white font-body uppercase tracking-wider">
-                          LOC to cost centers
-                        </h3>
+                        <div>
+                          <h3 className="text-xs font-bold text-sonar-purple dark:text-white font-body uppercase tracking-wider">
+                            Code Allocated
+                          </h3>
+                          <p className="text-[10px] text-gray-500 dark:text-slate-400 mt-0.5">
+                            Lines distributed to teams
+                          </p>
+                        </div>
                         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-sonar-blue to-sonar-blue-secondary flex items-center justify-center shadow-lg">
                           <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
@@ -852,9 +1099,14 @@ export default function BillingDashboard() {
                     {/* Plan Usage - headroom = allowance − consumed */}
                     <div className="bg-gradient-to-br from-white to-emerald-50 dark:from-gray-800 dark:to-emerald-950 rounded-2xl shadow-xl border-2 border-emerald-100 dark:border-emerald-900 p-6 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
                         <div className="flex items-center justify-between mb-3 min-h-[2.75rem]">
-                          <h3 className="text-xs font-bold text-sonar-purple dark:text-white font-body uppercase tracking-wider">
-                            Plan Usage {limit && limit > 0 && <span className="text-green-600">●</span>}
-                          </h3>
+                          <div>
+                            <h3 className="text-xs font-bold text-sonar-purple dark:text-white font-body uppercase tracking-wider">
+                              License Consumption {limit && limit > 0 && <span className="text-green-600">●</span>}
+                            </h3>
+                            <p className="text-[10px] text-gray-500 dark:text-slate-400 mt-0.5">
+                              % of contracted capacity
+                            </p>
+                          </div>
                           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg">
                             {isLoadingBilling ? (
                               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
@@ -925,9 +1177,14 @@ export default function BillingDashboard() {
                     {/* Median LOC Per Project */}
                     <div className="bg-gradient-to-br from-white to-purple-50 dark:from-gray-800 dark:to-purple-950 rounded-2xl shadow-xl border-2 border-purple-100 dark:border-purple-900 p-6 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1">
                       <div className="flex items-center justify-between mb-3 min-h-[2.75rem]">
-                        <h3 className="text-xs font-bold text-sonar-purple dark:text-white font-body uppercase tracking-wider">
-                          Median LOC Per Project
-                        </h3>
+                        <div>
+                          <h3 className="text-xs font-bold text-sonar-purple dark:text-white font-body uppercase tracking-wider">
+                            Typical Project Size
+                          </h3>
+                          <p className="text-[10px] text-gray-500 dark:text-slate-400 mt-0.5">
+                            Median lines of code
+                          </p>
+                        </div>
                         <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-lg">
                           <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -956,9 +1213,31 @@ export default function BillingDashboard() {
                         <h3 className="text-lg font-bold text-sonar-purple dark:text-white">
                           Per-organization breakdown
                         </h3>
-                        <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
-                          Reserved = per-org usage; Pooled = shared, counted once in total above.
-                        </p>
+                        <div className="flex items-start gap-2 mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                          <svg className="w-5 h-5 text-gray-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <div className="text-sm space-y-1">
+                            <div className="flex items-center">
+                              <span className="inline-block px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200 font-medium">
+                                Reserved
+                              </span>
+                              <span className="text-gray-600 dark:text-slate-300 ml-2">
+                                = Dedicated capacity per organization (LOC counted separately for each org)
+                              </span>
+                              <HelpIcon content="In reserved mode, each organization has its own separate LOC limit. The same code in different organizations counts multiple times toward your total. Better for isolated teams." />
+                            </div>
+                            <div className="flex items-center">
+                              <span className="inline-block px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 font-medium">
+                                Pooled
+                              </span>
+                              <span className="text-gray-600 dark:text-slate-300 ml-2">
+                                = Shared capacity across enterprise (LOC counted once in enterprise total)
+                              </span>
+                              <HelpIcon content="In pooled mode, each line of code is counted only once toward your total enterprise license, regardless of how many organizations use it. More cost-effective for shared codebases." />
+                            </div>
+                          </div>
+                        </div>
                       </div>
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
@@ -1063,16 +1342,19 @@ export default function BillingDashboard() {
 
               {selectedProjects.length === 0 && projectKeysFromAssignments.length === 0 && (
                 <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-12 text-center border-t-4 border-sonar-blue">
-                  <div className="text-gray-600 dark:text-slate-300 mb-4">
-                    <svg className="mx-auto h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-sonar-blue/10 mb-4">
+                    <svg className="w-8 h-8 text-sonar-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                     </svg>
                   </div>
-                  <h3 className="text-xl font-bold text-sonar-purple dark:text-white mb-2">
-                    No Projects Assigned
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                    Ready to allocate costs?
                   </h3>
-                  <p className="text-gray-600 dark:text-slate-300 font-body">
-                    Assign one or more projects to cost centers in the section above to view billing analytics
+                  <p className="text-gray-600 dark:text-slate-300 mb-4 max-w-md mx-auto">
+                    Start by creating cost centers for your teams, then assign projects to see how code ownership breaks down.
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-slate-400">
+                    Scroll down to the "Team Summary" section to get started
                   </p>
                 </div>
               )}
@@ -1086,11 +1368,16 @@ export default function BillingDashboard() {
           )}
 
           {/* Config: cost calculator */}
-          <div className="space-y-6">
+          <div className="space-y-4">
             {isMultiOrg && (
-              <p className="text-sm text-gray-600 dark:text-slate-400 font-body">
-                Plan allowance below is aggregated across {selectedOrganizations.length} organization{selectedOrganizations.length === 1 ? '' : 's'}.
-              </p>
+              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border-l-4 border-sonar-blue rounded flex items-start gap-2">
+                <svg className="w-5 h-5 text-sonar-blue shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-sm text-gray-700 dark:text-gray-200 font-body">
+                  <span className="font-semibold">Multi-organization view:</span> The plan allowance shown below is the combined total across {selectedOrganizations.length} organization{selectedOrganizations.length === 1 ? '' : 's'}.
+                </p>
+              </div>
             )}
             <CostCalculator planAllowanceLOC={limit} />
           </div>
@@ -1116,7 +1403,7 @@ export default function BillingDashboard() {
               </button>
               <button
                 onClick={() => { handleExportPDF(); }}
-                className="btn-sonar-accent px-4 py-2 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg font-body"
+                className="btn-sonar-primary px-4 py-2 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg font-body"
               >
                 Generate PDF Report
               </button>
@@ -1126,6 +1413,24 @@ export default function BillingDashboard() {
           )}
         </div>
       </main>
+
+      {/* Keyboard Shortcuts Hint */}
+      <div className="fixed bottom-4 right-4 text-xs text-gray-500 dark:text-slate-400 bg-white dark:bg-gray-800 rounded-lg shadow-lg px-3 py-2 border border-gray-200 dark:border-gray-700">
+        Press{' '}
+        <kbd className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-[10px] font-mono border border-gray-300 dark:border-gray-600">
+          ⌘/Ctrl+1/2/3
+        </kbd>{' '}
+        to switch views
+      </div>
+
+      {/* Toast Notifications */}
+      {toastMessage && (
+        <Toast
+          message={toastMessage}
+          variant="success"
+          onClose={() => setToastMessage(null)}
+        />
+      )}
     </div>
   );
 }

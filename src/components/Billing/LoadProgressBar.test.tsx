@@ -4,6 +4,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import LoadProgressBar from './LoadProgressBar';
 
 const mockItems = [
@@ -49,8 +50,18 @@ describe('LoadProgressBar', () => {
     expect(screen.getByText(/\(1 fetching\)/)).toBeInTheDocument();
   });
 
-  it('shows progress details and categories while loading (expanded by default)', () => {
+  it('shows progress details and categories when expanded', async () => {
+    const user = userEvent.setup();
     render(<LoadProgressBar />);
+
+    // Should show "Show details" button initially
+    const showButton = screen.getByRole('button', { name: /Show details/ });
+    expect(showButton).toBeInTheDocument();
+
+    // Click to expand
+    await user.click(showButton);
+
+    // Now details should be visible
     expect(screen.getByText(/Billing/)).toBeInTheDocument();
     expect(screen.getByText(/Projects/)).toBeInTheDocument();
     expect(screen.getByText(/Only the .fetching. count are actual network/)).toBeInTheDocument();

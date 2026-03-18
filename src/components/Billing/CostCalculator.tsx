@@ -54,7 +54,7 @@ export default function CostCalculator({ planAllowanceLOC }: CostCalculatorProps
         {!editing && (
           <button
             onClick={() => setEditing(true)}
-            className="btn-sonar-accent px-4 py-2 rounded-lg"
+            className="btn-sonar-primary px-4 py-2 rounded-lg"
           >
             Edit Configuration
           </button>

@@ -92,14 +92,28 @@ export default function OrganizationSelector(props: OrganizationSelectorProps) {
   );
 
   if (error) {
+    const message = error instanceof Error ? error.message : 'Failed to load organizations';
+    let suggestion = 'Check your connection and try refreshing the page.';
+
+    if (message.includes('401') || message.includes('403') || message.includes('Unauthorized')) {
+      suggestion = 'Your token may have expired. Try logging out and reconnecting.';
+    } else if (message.includes('Enterprise')) {
+      suggestion = 'Verify your Enterprise Key in SonarCloud settings.';
+    }
+
     return (
-      <div className="flex items-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-300 dark:border-red-700">
-        <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        <span className="text-sm text-red-600 dark:text-red-400 font-body">
-          {error instanceof Error ? error.message : 'Failed to load organizations'}
-        </span>
+      <div className="px-4 py-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-300 dark:border-red-700">
+        <div className="flex items-center gap-2 mb-1">
+          <svg className="w-5 h-5 text-red-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span className="text-sm text-red-600 dark:text-red-400 font-body font-semibold">
+            {message}
+          </span>
+        </div>
+        <p className="text-xs text-red-600 dark:text-red-400 font-body ml-7 opacity-90">
+          {suggestion}
+        </p>
       </div>
     );
   }
