@@ -107,7 +107,6 @@ export default function BillingPivotTable({ data, currency = 'USD', totals, show
         field: 'ncloc',
         headerName: 'Total LOC',
         type: 'numericColumn',
-        aggFunc: 'sum',
         width: 110,
         valueFormatter: (params) => formatNumberWithCommas(params.value ?? 0),
       },
@@ -115,7 +114,6 @@ export default function BillingPivotTable({ data, currency = 'USD', totals, show
         field: 'allocatedLoc',
         headerName: 'Allocated LOC',
         type: 'numericColumn',
-        aggFunc: 'sum',
         width: 120,
         valueFormatter: (params) => formatNumberWithCommas(params.value ?? 0),
       },
@@ -123,7 +121,6 @@ export default function BillingPivotTable({ data, currency = 'USD', totals, show
         field: 'cost',
         headerName: `Cost rate-based (${getCurrencySymbol(currency)})`,
         type: 'numericColumn',
-        aggFunc: 'sum',
         width: 140,
         valueFormatter: (params) => formatCurrency(params.value ?? 0, currency),
       },
@@ -131,7 +128,6 @@ export default function BillingPivotTable({ data, currency = 'USD', totals, show
         field: 'costContractShare',
         headerName: `License share (${getCurrencySymbol(currency)})`,
         type: 'numericColumn',
-        aggFunc: 'sum',
         width: 140,
         valueFormatter: (params) => formatCurrency(params.value ?? 0, currency),
       },
@@ -180,13 +176,12 @@ export default function BillingPivotTable({ data, currency = 'USD', totals, show
         >
         <AgGridReact<BillingDetailsRow>
           key="billing-details-grid"
+          theme="legacy"
           rowData={rowData}
           pinnedBottomRowData={pinnedBottomData}
           columnDefs={columnDefs}
           defaultColDef={defaultColDef}
-          suppressAggFuncInHeader={false}
           animateRows={true}
-          enableRangeSelection={true}
           overlayNoRowsTemplate={`<span class="ag-overlay-no-rows-center">${NO_ROWS_MESSAGE}</span>`}
           initialState={{
             sort: { sortModel: [
