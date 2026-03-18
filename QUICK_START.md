@@ -24,6 +24,8 @@ The application will:
 - Automatically open your browser
 - Show the welcome screen
 
+![Welcome / login screen](images/login_page.png)
+
 Enter your SonarCloud token on the welcome screen (get one from SonarCloud → My Account → Security → Generate Token). The app stores it in the browser and does not need a `.env` file.
 
 **Optional:** If you run the test scripts from the command line (`node test-api.js` or `node test-e2e.js`), create a `.env` from `.env.example` and set `SONAR_TOKEN` so you don't have to pass the token as an argument. Never commit `.env`; it's in `.gitignore`.

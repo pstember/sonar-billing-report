@@ -2,11 +2,13 @@
 
 A self-contained web application for visualizing SonarCloud metrics focused on billing and cost allocation.
 
+![Billing dashboard overview](images/overview_page.png)
+
 ## ✨ Features
 
 - **No Configuration Required**: Enter your SonarCloud token in the UI - no `.env` files needed
 - **Comprehensive Billing Dashboard**: View costs, trends, and breakdowns by organization, project, and tags
-- **Multiple Deployment Options**: Run as Node.js app, Docker container, or standalone executable
+- **Multiple Deployment Options**: Run as Node.js app or standalone executable; deploy to Netlify, Vercel, or other static hosts
 - **Built-in API Proxy**: Handles SonarCloud API authentication and CORS
 - **Data Export**: Export reports to Excel, CSV, or PDF
 - **Real-time Metrics**: Track lines of code, quality metrics, and historical trends
@@ -33,7 +35,7 @@ Visit `http://localhost:3000` and enter your SonarCloud token to get started.
 |----------|-------------|
 | [QUICK_START.md](./QUICK_START.md) | Getting started, features, troubleshooting |
 | [BUILD.md](./BUILD.md) | **Build, package, and create executables** |
-| [DEPLOYMENT.md](./DEPLOYMENT.md) | Deploy options (Docker, cloud, local proxy) |
+| [DEPLOYMENT.md](./DEPLOYMENT.md) | Deploy options (cloud, local proxy) |
 | [SECURITY.md](./SECURITY.md) | Security best practices |
 | [API_LIMITS.md](./API_LIMITS.md) | SonarCloud API constraints |
 | [CLAUDE.md](./CLAUDE.md) | Development guidelines |

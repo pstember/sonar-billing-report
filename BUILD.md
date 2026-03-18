@@ -279,20 +279,7 @@ npm install --production
 npm start
 ```
 
-### 3. Docker Container
-
-See [DEPLOYMENT.md](./DEPLOYMENT.md) for Docker instructions.
-
-**Pros**:
-- Consistent environment
-- Easy scaling
-- Includes all dependencies
-
-**Cons**:
-- Requires Docker
-- Larger image size
-
-### 4. Process Manager (PM2)
+### 3. Process Manager (PM2)
 
 For production Node.js deployments:
 
@@ -357,7 +344,6 @@ node test-e2e.js
 | Source | ~5MB | Before build |
 | Built dist/ | ~2MB | After npm run build |
 | Executable | ~50MB | Includes Node.js runtime |
-| Docker Image | ~200MB | Includes OS + Node.js |
 
 ---
 
