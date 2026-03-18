@@ -43,7 +43,8 @@ app.use((req, res, next) => {
 // Manual proxy for api.sonarcloud.io/billing/*
 app.use('/billing', async (req, res) => {
   try {
-    const url = new URL(req.url || '/', 'https://api.sonarcloud.io/billing').toString();
+    // Express strips /billing from req.url, so we need to add it back
+    const url = `https://api.sonarcloud.io/billing${req.url || '/'}`;
 
     const response = await fetch(url, {
       method: req.method,
@@ -66,7 +67,8 @@ app.use('/billing', async (req, res) => {
 // Manual proxy for api.sonarcloud.io/enterprises/*
 app.use('/enterprises', async (req, res) => {
   try {
-    const url = new URL(req.url || '/', 'https://api.sonarcloud.io/enterprises').toString();
+    // Express strips /enterprises from req.url, so we need to add it back
+    const url = `https://api.sonarcloud.io/enterprises${req.url || '/'}`;
 
     const response = await fetch(url, {
       method: req.method,
@@ -89,7 +91,8 @@ app.use('/enterprises', async (req, res) => {
 // Manual proxy for api.sonarcloud.io/organizations/*
 app.use('/organizations', async (req, res) => {
   try {
-    const url = new URL(req.url || '/', 'https://api.sonarcloud.io/organizations').toString();
+    // Express strips /organizations from req.url, so we need to add it back
+    const url = `https://api.sonarcloud.io/organizations${req.url || '/'}`;
 
     const response = await fetch(url, {
       method: req.method,

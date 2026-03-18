@@ -323,6 +323,18 @@ export default function ProjectList({
     onBulkActionSuccess,
   ]);
 
+  const handleBulkUnassign = useCallback(async () => {
+    if (!onClearProjectAssignment || filteredProjects.length === 0) return;
+    const keys = filteredProjects.map((p) => p.key);
+
+    // Clear all assignments for each filtered project
+    for (const key of keys) {
+      onClearProjectAssignment(key);
+    }
+
+    onBulkActionSuccess?.(`${keys.length} project${keys.length !== 1 ? 's' : ''} unassigned from all cost centers.`);
+  }, [filteredProjects, onClearProjectAssignment, onBulkActionSuccess]);
+
   const toggleProject = (key: string) => {
     const newSet = new Set(selectedProjects);
     if (newSet.has(key)) {
@@ -531,14 +543,24 @@ export default function ProjectList({
                 </button>
               )}
               {isAssignmentMode && costCenters && costCenters.length > 0 && (
-                <button
-                  type="button"
-                  onClick={handleOpenBulkModal}
-                  disabled={filteredProjects.length === 0}
-                  className="btn-sonar-primary px-4 py-2 rounded-lg transition-all duration-200 font-body text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Assign all filtered to… ({filteredProjects.length})
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={handleOpenBulkModal}
+                    disabled={filteredProjects.length === 0}
+                    className="btn-sonar-primary px-4 py-2 rounded-lg transition-all duration-200 font-body text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Assign all filtered to… ({filteredProjects.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleBulkUnassign()}
+                    disabled={filteredProjects.length === 0}
+                    className="btn-sonar-secondary px-4 py-2 rounded-lg transition-all duration-200 font-body text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Unassign all filtered ({filteredProjects.length})
+                  </button>
+                </>
               )}
             </div>
             </div>

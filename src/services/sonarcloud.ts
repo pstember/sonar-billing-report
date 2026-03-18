@@ -45,6 +45,15 @@ class SonarCloudService {
   }
 
   /**
+   * Generate Basic Auth header (SonarCloud uses Basic auth with token:empty_password)
+   */
+  private getAuthHeader(): string {
+    // SonarCloud expects: Basic base64(token:)
+    const credentials = btoa(`${this.config.token}:`);
+    return `Basic ${credentials}`;
+  }
+
+  /**
    * Make authenticated API request
    */
   private async request<T>(
@@ -54,7 +63,7 @@ class SonarCloudService {
     const url = `${this.config.baseUrl}${API_VERSION}${endpoint}`;
 
     const headers = {
-      'Authorization': `Bearer ${this.config.token}`,
+      'Authorization': this.getAuthHeader(),
       'Content-Type': 'application/json',
       ...options.headers,
     };
@@ -104,7 +113,7 @@ class SonarCloudService {
 
     // Only add Authorization if required (some endpoints like organizations don't need it)
     if (requireAuth) {
-      headers.Authorization = `Bearer ${this.config.token}`;
+      headers.Authorization = this.getAuthHeader();
     }
 
     try {
