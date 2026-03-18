@@ -330,7 +330,7 @@ export default function CostCenters({ organization, onProjectsSelected, projects
           selectedProjectKeys={selectedProjectKeys}
           costCenters={costCenters}
           assignments={allAssignments}
-          onSaveProjectAssignment={(a, b) => void handleSaveProjectAssignment(a, b)}
+          onSaveProjectAssignment={(projectKey, costCenterId, allocationPercentage) => void handleSaveProjectAssignment(projectKey, costCenterId, allocationPercentage)}
           onClearProjectAssignment={(a) => void handleClearProjectAssignment(a)}
           onBulkAssign={(a, b, c) => void handleBulkAssign(a, b, c)}
           onBulkActionSuccess={setBulkSuccessMessage}

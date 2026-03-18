@@ -408,20 +408,6 @@ export default function ProjectList({
         )}
       </div>
 
-      {/* Bulk assign toolbar (assignment mode only) */}
-      {isAssignmentMode && costCenters && costCenters.length > 0 && (
-        <div className="mb-4 flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={handleOpenBulkModal}
-            disabled={filteredProjects.length === 0}
-            className="btn-sonar-accent px-4 py-2 rounded-lg transition-all duration-200 font-body text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Assign all filtered to… ({filteredProjects.length})
-          </button>
-        </div>
-      )}
-
       {/* Bulk assign modal */}
       {bulkModalOpen && costCenters && costCenters.length > 0 && (
         <dialog
@@ -545,44 +531,62 @@ export default function ProjectList({
         />
       </div>
 
-      {/* Tag Filter - Multi-select with checkboxes */}
-      {availableTags.length > 0 && (
+      {/* Tag Filter - Multi-select with checkboxes (includes Assign button in assignment mode) */}
+      {(availableTags.length > 0 || (isAssignmentMode && costCenters && costCenters.length > 0)) && (
         <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="font-semibold text-sonar-purple dark:text-white font-body">Filter by Tags</h3>
-            {selectedTags.size > 0 && (
-              <button
-                onClick={clearTagFilters}
-                className="text-sm text-sonar-blue hover:text-sonar-blue-secondary font-body"
-              >
-                Clear filters
-              </button>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {availableTags.map((tag) => {
-              const isSelected = selectedTags.has(tag);
-              const projectCount = projects.filter(p => p.tags?.includes(tag)).length;
-
-              return (
+          <div className="flex flex-wrap justify-between items-center gap-2 mb-3">
+            <h3 className="font-semibold text-sonar-purple dark:text-white font-body">
+              {availableTags.length > 0 ? 'Filter by Tags' : 'Assign projects'}
+            </h3>
+            <div className="flex flex-wrap items-center gap-2">
+              {availableTags.length > 0 && selectedTags.size > 0 && (
                 <button
-                  key={tag}
-                  onClick={() => toggleTag(tag)}
-                  className={`px-3 py-1.5 rounded-full text-sm font-medium font-body transition-all duration-200 ${
-                    isSelected
-                      ? 'bg-sonar-blue text-white shadow-md'
-                      : 'bg-white dark:bg-gray-600 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-500 hover:border-sonar-blue'
-                  }`}
+                  onClick={clearTagFilters}
+                  className="text-sm text-sonar-blue hover:text-sonar-blue-secondary font-body"
                 >
-                  {tag} <span className="ml-1 opacity-75">({projectCount})</span>
+                  Clear filters
                 </button>
-              );
-            })}
-          </div>
-          {selectedTags.size > 0 && (
-            <p className="mt-2 text-sm text-gray-600 dark:text-slate-300 font-body">
-              {selectedTags.size} tag{selectedTags.size > 1 ? 's' : ''} selected
-            </p>
+              )}
+              {isAssignmentMode && costCenters && costCenters.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleOpenBulkModal}
+                  disabled={filteredProjects.length === 0}
+                  className="btn-sonar-accent px-4 py-2 rounded-lg transition-all duration-200 font-body text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Assign all filtered to… ({filteredProjects.length})
+                </button>
+              )}
+            </div>
+            </div>
+          {availableTags.length > 0 && (
+            <>
+              <div className="flex flex-wrap gap-2">
+                {availableTags.map((tag) => {
+                  const isSelected = selectedTags.has(tag);
+                  const projectCount = projects.filter(p => p.tags?.includes(tag)).length;
+
+                  return (
+                    <button
+                      key={tag}
+                      onClick={() => toggleTag(tag)}
+                      className={`px-3 py-1.5 rounded-full text-sm font-medium font-body transition-all duration-200 ${
+                        isSelected
+                          ? 'bg-sonar-blue text-white shadow-md'
+                          : 'bg-white dark:bg-gray-600 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-500 hover:border-sonar-blue'
+                      }`}
+                    >
+                      {tag} <span className="ml-1 opacity-75">({projectCount})</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedTags.size > 0 && (
+                <p className="mt-2 text-sm text-gray-600 dark:text-slate-300 font-body">
+                  {selectedTags.size} tag{selectedTags.size > 1 ? 's' : ''} selected
+                </p>
+              )}
+            </>
           )}
         </div>
       )}
