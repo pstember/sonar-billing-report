@@ -11,7 +11,7 @@ export default defineConfig({
     setupFiles: ['vitest.setup.ts'],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'text-summary', 'html'],
+      reporter: ['text', 'text-summary', 'html', 'lcov'],
       include: ['src/**/*.ts', 'src/**/*.tsx'],
       exclude: [
         'src/**/*.test.ts',
@@ -21,8 +21,10 @@ export default defineConfig({
         '**/*.d.ts',
       ],
       // Target 90%; set to current coverage so build passes until 90% is reached
-      lines: 68,
-      statements: 65,
+      thresholds: {
+        lines: 68,
+        statements: 65,
+      },
     },
   },
   resolve: {
