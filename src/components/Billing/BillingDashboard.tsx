@@ -36,26 +36,32 @@ export default function BillingDashboard() {
 
   // Load view mode and selected organizations from settings
   useEffect(() => {
-    getSetting<ViewMode>('viewMode').then((mode) => {
-      if (mode && (mode === 'single' || mode === 'multi' || mode === 'all')) setViewModeState(mode);
-    });
-    getSetting<SelectedOrganization[]>('selectedOrganizations').then((orgs) => {
-      if (Array.isArray(orgs) && orgs.length > 0) setSelectedOrganizations(orgs);
-    });
+    const load = async () => {
+      try {
+        const [mode, orgs] = await Promise.all([
+          getSetting<ViewMode>('viewMode'),
+          getSetting<SelectedOrganization[]>('selectedOrganizations'),
+        ]);
+        if (mode && (mode === 'single' || mode === 'multi' || mode === 'all')) setViewModeState(mode);
+        if (Array.isArray(orgs) && orgs.length > 0) setSelectedOrganizations(orgs);
+      } catch { /* ignore */ }
+    };
+    void load();
   }, []);
 
   const setViewMode = (mode: ViewMode) => {
     setViewModeState(mode);
-    saveSetting('viewMode', mode);
+    void saveSetting('viewMode', mode);
   };
 
   const handleOrganizationsChange = (orgs: SelectedOrganization[]) => {
     setSelectedOrganizations(orgs);
-    saveSetting('selectedOrganizations', orgs);
+    void saveSetting('selectedOrganizations', orgs);
   };
 
-  // Reset selected projects when organization(s) change
+  // Reset selected projects when organization(s) change (intentional sync when org changes)
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset selection when org changes
     if (viewMode === 'single' && selectedOrganization) setSelectedProjects([]);
     if (viewMode === 'multi' && selectedOrganizations.length > 0) setSelectedProjects([]);
   }, [viewMode, selectedOrganization, selectedOrganizations]);
@@ -162,7 +168,7 @@ export default function BillingDashboard() {
   const { realTrendData, trendTeamNames, trendSeriesLabels } = useMemo(() => {
     const projectOnly = allAssignments.filter((a) => (a.type === 'project' || a.projectKey) && a.projectKey && a.costCenterId);
     const ccDisplayNames = costCenters.map((cc) => (cc.code ? `${cc.name} (${cc.code})` : cc.name));
-    const data: Array<{ date: string; [key: string]: string | number }> = [];
+    const data: { date: string; [key: string]: string | number }[] = [];
 
     monthlyTrendByProject.forEach((month) => {
       const total = Object.values(month.projectNcloc).reduce((s, v) => s + v, 0);
@@ -232,7 +238,7 @@ export default function BillingDashboard() {
     const nclocByKey = new Map(projectsData.map((p) => [p.key, p.ncloc]));
     const projectNameByKey = new Map(projectsData.map((p) => [p.key, p.name]));
     const config = billingConfig ?? { defaultRate: 10, currency: 'USD' };
-    type Row = {
+    interface Row {
       costCenterName: string;
       costCenterCode: string;
       projectKey: string;
@@ -243,7 +249,7 @@ export default function BillingDashboard() {
       allocatedLoc: number;
       cost: number;
       costContractShare: number;
-    };
+    }
     const rows: Row[] = [];
 
     // Per-project allocated LOC (sum of allocated portions across all cost center assignments)
@@ -470,8 +476,8 @@ export default function BillingDashboard() {
   // ONLY use data from billing API - no fallbacks to configured limits
   // consumed = total LOC used across all private projects in the organization
   // limit = total LOC available in the organization's plan (from consumption API)
-  const actualConsumed = consumed || 0;
-  const actualLimit = limit || 0;
+  const actualConsumed = consumed ?? 0;
+  const actualLimit = limit ?? 0;
   const actualUsagePercent = actualLimit > 0 ? (actualConsumed / actualLimit) * 100 : 0;
 
   return (
@@ -485,7 +491,7 @@ export default function BillingDashboard() {
             <div className="flex items-center gap-3">
               <ThemeSelector />
               <button
-                onClick={handleLogout}
+                onClick={() => void handleLogout()}
                 className="btn-sonar-danger px-4 py-2 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg font-body"
               >
                 Logout
@@ -601,7 +607,7 @@ export default function BillingDashboard() {
                           onClick={() => {
                             setViewMode('single');
                             setSelectedOrganization({ key: org.key, name: org.name, uuid: org.uuid });
-                            saveSetting('selectedOrganization', org.key);
+                            void saveSetting('selectedOrganization', org.key);
                           }}
                           className="btn-sonar-primary px-3 py-1.5 text-sm rounded-lg"
                         >
@@ -994,19 +1000,19 @@ export default function BillingDashboard() {
             </p>
             <div className="mt-6 flex gap-4 flex-wrap">
               <button
-                onClick={handleExportExcel}
+                onClick={() => void handleExportExcel()}
                 className="btn-sonar-primary px-4 py-2 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg font-body"
               >
                 Export to Excel
               </button>
               <button
-                onClick={handleExportCSV}
+                onClick={() => void handleExportCSV()}
                 className="btn-sonar-primary px-4 py-2 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg font-body"
               >
                 Export to CSV
               </button>
               <button
-                onClick={handleExportPDF}
+                onClick={() => void handleExportPDF()}
                 className="btn-sonar-accent px-4 py-2 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg font-body"
               >
                 Generate PDF Report

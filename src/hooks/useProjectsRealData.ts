@@ -67,10 +67,10 @@ export function useProjectsRealData(projectKeys: string[]) {
           return {
             key,
             name: measuresResponse.component.name,
-            ncloc: nclocMeasure ? Number.parseInt(nclocMeasure.value || '0', 10) : 0,
-            coverage: coverageMeasure ? Number.parseFloat(coverageMeasure.value || '0') : 0,
-            bugs: bugsMeasure ? Number.parseInt(bugsMeasure.value || '0', 10) : 0,
-            tags: componentDetails.component.tags || [],
+            ncloc: nclocMeasure ? Number.parseInt(nclocMeasure.value ?? '0', 10) : 0,
+            coverage: coverageMeasure ? Number.parseFloat(coverageMeasure.value ?? '0') : 0,
+            bugs: bugsMeasure ? Number.parseInt(bugsMeasure.value ?? '0', 10) : 0,
+            tags: componentDetails.component.tags ?? [],
           };
         } catch (error) {
           console.error(`Error fetching data for ${key}:`, error);
@@ -110,12 +110,12 @@ export function useProjectsRealData(projectKeys: string[]) {
           });
 
           const projectData = projectQueries.find((q) => q.data?.key === key)?.data;
-          const tags = projectData?.tags || [];
+          const tags = projectData?.tags ?? [];
 
           return {
             key,
             tags,
-            history: historyResponse.measures?.[0]?.history || [],
+            history: historyResponse.measures?.[0]?.history ?? [],
           };
         } catch (error) {
           console.error(`Error fetching history for ${key}:`, error);
@@ -171,7 +171,7 @@ export function useProjectsRealData(projectKeys: string[]) {
           teamName: primaryTag, // Use first tag as team name
           projectName: project.name,
           projectKey: project.key,
-          tags: project.tags.join(', ') || 'Untagged',
+          tags: project.tags.join(', ') ?? 'Untagged',
           tag: primaryTag,
           ncloc: project.ncloc,
           coverage: project.coverage,
@@ -198,7 +198,7 @@ export function useProjectsRealData(projectKeys: string[]) {
   }, []);
 
   function lastKnownNclocForMonth(
-    history: Array<{ date: string; value: string }>,
+    history: { date: string; value: string }[],
     endOfMonthStr: string
   ): number {
     const sorted = [...history].sort((a, b) => a.date.localeCompare(b.date));
@@ -206,7 +206,7 @@ export function useProjectsRealData(projectKeys: string[]) {
     for (const point of sorted) {
       const dateOnly = point.date.split('T')[0];
       if (dateOnly <= endOfMonthStr) {
-        lastValue = Number.parseInt(point.value || '0', 10);
+        lastValue = Number.parseInt(point.value ?? '0', 10);
       }
     }
     return lastValue;
@@ -245,18 +245,18 @@ export function useProjectsRealData(projectKeys: string[]) {
     });
   }, [monthlyTrendByProject]);
 
-  const isLoading = projectQueries.some((q) => q.isLoading) || historyQueries.some((q) => q.isLoading);
-  const isError = projectQueries.some((q) => q.isError) || historyQueries.some((q) => q.isError);
+  const isLoading = projectQueries.some((q) => q.isLoading) ?? historyQueries.some((q) => q.isLoading);
+  const isError = projectQueries.some((q) => q.isError) ?? historyQueries.some((q) => q.isError);
 
   return {
-    projects: projectQueries.map((q) => q.data).filter(Boolean) as Array<{
+    projects: projectQueries.map((q) => q.data).filter(Boolean) as {
       key: string;
       name: string;
       ncloc: number;
       coverage: number;
       bugs: number;
       tags: string[];
-    }>,
+    }[],
     aggregatedByTag,
     pivotData,
     trendData,

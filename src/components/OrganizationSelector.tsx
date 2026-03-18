@@ -52,13 +52,14 @@ export default function OrganizationSelector(props: OrganizationSelectorProps) {
       setSelectedOrg(firstOrg.key);
       onOrganizationChange({ key: firstOrg.key, name: firstOrg.name, uuid: firstOrg.uuid });
     };
-    loadSavedOrg();
+    void loadSavedOrg();
   }, [organizations, multiSelect]);
 
   // Multi-select: sync from controlled value
   useEffect(() => {
     if (!multiSelect) return;
     const selected = (props as OrganizationSelectorPropsMulti).selectedOrganizations ?? [];
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync controlled value to internal set
     setSelectedKeysMulti(new Set(selected.map((o) => o.key)));
   }, [multiSelect, (props as OrganizationSelectorPropsMulti).selectedOrganizations]);
 
@@ -84,7 +85,7 @@ export default function OrganizationSelector(props: OrganizationSelectorProps) {
       setSelectedKeysMulti(next);
       const list = organizations?.filter((o) => next.has(o.key)) ?? [];
       onOrganizationsChange(list);
-      saveSetting('selectedOrganizations', list.map((o) => ({ key: o.key, name: o.name, uuid: o.uuid })));
+      void saveSetting('selectedOrganizations', list.map((o) => ({ key: o.key, name: o.name, uuid: o.uuid })));
     },
     [multiSelect, organizations, selectedKeysMulti, props]
   );
@@ -174,7 +175,7 @@ export default function OrganizationSelector(props: OrganizationSelectorProps) {
       </div>
       <select
         value={selectedOrg}
-        onChange={(e) => handleChangeSingle(e.target.value)}
+        onChange={(e) => void handleChangeSingle(e.target.value)}
         className="flex-1 px-4 py-2 bg-transparent text-sm font-semibold text-gray-900 dark:text-white font-body focus:outline-none focus:ring-2 focus:ring-sonar-blue cursor-pointer"
       >
         {organizations.map((org) => (

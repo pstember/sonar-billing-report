@@ -6,11 +6,11 @@
 /**
  * Export data to CSV
  */
-export function exportToCSV(data: Array<Record<string, any>>, filename: string) {
-  const headers = Object.keys(data[0] || {});
+export function exportToCSV(data: Record<string, unknown>[], filename: string) {
+  const headers = Object.keys(data[0] ?? {});
   const csvContent = [
     headers.join(','),
-    ...data.map((row) => headers.map((h) => JSON.stringify(row[h] || '')).join(',')),
+    ...data.map((row) => headers.map((h) => JSON.stringify(row[h] ?? '')).join(',')),
   ].join('\n');
 
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -28,7 +28,7 @@ export function exportToCSV(data: Array<Record<string, any>>, filename: string) 
 /**
  * Export data to Excel
  */
-export async function exportToExcel(data: Array<Record<string, any>>, filename: string, sheetName = 'Sheet1') {
+export async function exportToExcel(data: Record<string, unknown>[], filename: string, sheetName = 'Sheet1') {
   const XLSX = await import('xlsx');
   const worksheet = XLSX.utils.json_to_sheet(data);
   const workbook = XLSX.utils.book_new();
@@ -36,7 +36,7 @@ export async function exportToExcel(data: Array<Record<string, any>>, filename: 
 
   // Auto-size columns
   const maxWidth = 50;
-  const wscols = Object.keys(data[0] || {}).map((key) => ({
+  const wscols = Object.keys(data[0] ?? {}).map((key) => ({
     wch: Math.min(maxWidth, Math.max(key.length, 10)),
   }));
   worksheet['!cols'] = wscols;
@@ -47,7 +47,7 @@ export async function exportToExcel(data: Array<Record<string, any>>, filename: 
 /**
  * Export data to PDF (billing report table)
  */
-export async function exportToPDF(data: Array<Record<string, any>>, filename: string) {
+export async function exportToPDF(data: Record<string, unknown>[], filename: string) {
   if (!data || data.length === 0) return;
 
   const [{ jsPDF }, { default: autoTable }] = await Promise.all([
@@ -56,8 +56,8 @@ export async function exportToPDF(data: Array<Record<string, any>>, filename: st
   ]);
 
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-  const headers = Object.keys(data[0] || {});
-  const body = data.map((row) => headers.map((h) => String(row[h] ?? '')));
+  const headers = Object.keys(data[0] ?? {});
+  const body = data.map((row) => headers.map((h) => (typeof row[h] === 'string' || typeof row[h] === 'number' ? String(row[h]) : '')));
 
   doc.setFontSize(14);
   doc.text('Billing Report', 14, 12);

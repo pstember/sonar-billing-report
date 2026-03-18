@@ -1,0 +1,14 @@
+{
+  "organizations": [
+    {
+      "key": "my-org",
+      "name": "My Organization",
+      "description": "Test org"
+    }
+  ],
+  "paging": {
+    "pageIndex": 1,
+    "pageSize": 50,
+    "total": 1
+  }
+}

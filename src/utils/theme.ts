@@ -22,7 +22,7 @@ export function setStoredTheme(theme: Theme): void {
 function isSystemDark(): boolean {
   return (
     typeof globalThis.window !== 'undefined' &&
-    globalThis.window.matchMedia('(prefers-color-scheme: dark)').matches
+    globalThis.window?.matchMedia('(prefers-color-scheme: dark)').matches
   );
 }
 
@@ -40,12 +40,12 @@ export function applyTheme(): void {
 
 /** Whether the UI should currently show dark styles */
 export function isDark(): boolean {
-  return typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
+  return typeof document !== 'undefined' && document.documentElement?.classList?.contains('dark');
 }
 
 /** Subscribe to system preference changes when theme is 'system'. Returns unsubscribe. */
 export function subscribeToSystemChange(callback: () => void): () => void {
-  if (typeof globalThis.window === 'undefined') return () => {};
+  if (typeof globalThis.window === 'undefined') return () => { /* no-op */ };
   const mq = globalThis.window.matchMedia('(prefers-color-scheme: dark)');
   const handler = () => {
     if (getStoredTheme() === 'system') {

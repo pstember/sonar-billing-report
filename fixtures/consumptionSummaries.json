@@ -1,0 +1,19 @@
+{
+  "consumptionSummaries": [
+    {
+      "usage": 23000,
+      "allowance": 100000,
+      "usagePercentage": 23,
+      "key": "linesOfCode",
+      "resourceId": "452ade58-23a5-4047-adb1-3af0606bdd7a",
+      "resourceType": "organization",
+      "consumptionType": "snapshot",
+      "mode": "absoluteReserved"
+    }
+  ],
+  "page": {
+    "pageIndex": 1,
+    "pageSize": 50,
+    "total": 1
+  }
+}

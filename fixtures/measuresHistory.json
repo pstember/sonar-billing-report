@@ -1,0 +1,17 @@
+{
+  "paging": {
+    "pageIndex": 1,
+    "pageSize": 100,
+    "total": 12
+  },
+  "measures": [
+    {
+      "metric": "ncloc",
+      "history": [
+        { "date": "2024-01-01", "value": "12000" },
+        { "date": "2024-02-01", "value": "13500" },
+        { "date": "2024-03-01", "value": "15000" }
+      ]
+    }
+  ]
+}

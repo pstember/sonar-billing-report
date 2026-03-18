@@ -32,7 +32,7 @@ export interface Organization {
   };
   guarded?: boolean;
   subscription?: string;
-  [key: string]: any; // Allow additional fields
+  [key: string]: unknown; // Allow additional fields
 }
 
 export interface OrganizationDetails {
@@ -124,17 +124,15 @@ export interface MetricDefinition {
  * Parsed language distribution
  * Example: { "java": 1234, "javascript": 567, "python": 890 }
  */
-export interface LanguageDistribution {
-  [language: string]: number;
-}
+export type LanguageDistribution = Record<string, number>;
 
 /**
  * API Error Response
  */
 export interface SonarCloudError {
-  errors: Array<{
+  errors: {
     msg: string;
-  }>;
+  }[];
 }
 
 /**
@@ -206,8 +204,8 @@ export interface EnterpriseOrganization {
   enterpriseId: string;
   organizationId: string; // Internal SonarCloud ID
   organizationUuidV4: string; // UUID for billing API
-  // API might return additional fields - allow any
-  [key: string]: any;
+  // API might return additional fields
+  [key: string]: unknown;
 }
 
 export interface EnterpriseOrganizationsResponse {

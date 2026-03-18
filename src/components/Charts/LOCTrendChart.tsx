@@ -12,10 +12,10 @@ import { CHART_COLORS } from '../../constants/chartColors';
 const STORAGE_PREFIX = 'sonar-billing-loc-trend-hidden';
 
 interface LOCTrendChartProps {
-  data: Array<{
+  data: {
     date: string;
     [key: string]: string | number;
-  }>;
+  }[];
   teamNames: string[];
   /** Optional map from dataKey to display label (e.g. __total__ -> "Total") */
   seriesLabels?: Record<string, string>;
@@ -27,27 +27,27 @@ interface LOCTrendChartProps {
 
 // Tooltip: sort so Total first, then by value descending
 function sortPayload(
-  payload: ReadonlyArray<{ name: string; value?: number }>,
+  payload: readonly { name: string; value?: number }[],
   seriesLabels: Record<string, string>
-): Array<{ name: string; value?: number }> {
+): { name: string; value?: number }[] {
   return [...payload].sort((a, b) => {
     const labelA = seriesLabels[a.name] ?? a.name;
     const labelB = seriesLabels[b.name] ?? b.name;
     if (labelA === 'Total') return -1;
     if (labelB === 'Total') return 1;
-    return Number(b.value || 0) - Number(a.value || 0);
+    return Number(b.value ?? 0) - Number(a.value ?? 0);
   });
 }
 
 const CustomTooltip = (props: {
   active?: boolean;
-  payload?: Array<{ name?: string; value?: number; stroke?: string }>;
+  payload?: { name?: string; value?: number; stroke?: string }[];
   label?: string;
   seriesLabels?: Record<string, string>;
 } & Record<string, unknown>) => {
   const { active, payload, label, seriesLabels = {} } = props;
   if (active && payload?.length) {
-    const sorted = sortPayload(payload as Array<{ name: string; value?: number }>, seriesLabels);
+    const sorted = sortPayload(payload as { name: string; value?: number }[], seriesLabels);
     return (
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-600 overflow-hidden min-w-[220px]">
         <div className="px-5 py-3 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-600">
@@ -85,7 +85,7 @@ const CustomLegend = ({
   hiddenSeries,
   onToggle,
 }: {
-  items: Array<{ dataKey: string; label: string; color: string }>;
+  items: { dataKey: string; label: string; color: string }[];
   hiddenSeries: Set<string>;
   onToggle: (dataKey: string) => void;
 }) => {

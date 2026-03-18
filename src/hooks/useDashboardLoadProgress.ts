@@ -150,7 +150,9 @@ export function useDashboardLoadProgress() {
     const cache = queryClient.getQueryCache();
     const update = () => setProgress(getDashboardProgress(queryClient));
     update();
-    const unsub = cache.subscribe(() => update());
+    // Defer subscription updates so we never call setState during another component's render
+    // (React Query can notify subscribers synchronously when cache updates during render)
+    const unsub = cache.subscribe(() => queueMicrotask(update));
     return unsub;
   }, [queryClient]);
 

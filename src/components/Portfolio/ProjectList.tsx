@@ -13,7 +13,7 @@ import type { CostCenter, CostCenterAssignment } from '../../types/billing';
 
 interface ProjectListProps {
   readonly onProjectsSelected: (projectKeys: string[]) => void;
-  readonly onProjectsDataChange?: (projectsData: Array<{key: string, ncloc: number, tags: string[]}>) => void;
+  readonly onProjectsDataChange?: (projectsData: {key: string, ncloc: number, tags: string[]}[]) => void;
   readonly organization?: string;
   /** When provided, selection is controlled by parent (sync from prop and notify on change). */
   readonly selectedProjectKeys?: string[];
@@ -26,7 +26,7 @@ interface ProjectListProps {
   /** Bulk assign all filtered projects to one or more cost centers (parent performs save/delete loop). Allocations per row; total should be 100%. */
   readonly onBulkAssign?: (
     projectKeys: string[],
-    assignments: Array<{ costCenterId: string; allocationPercentage: number }>,
+    assignments: { costCenterId: string; allocationPercentage: number }[],
     replaceExisting: boolean
   ) => void | Promise<void>;
   /** Optional: show success message after a bulk action (e.g. toast). */
@@ -52,7 +52,7 @@ export default function ProjectList({
   preferredNclocMap,
 }: ProjectListProps) {
   const { data: projectsDataFromApi, isLoading: projectsLoadingFromApi } = useProjects({
-    organization: projectsWithOrg == null ? organization || undefined : undefined,
+    organization: projectsWithOrg == null ? organization ?? undefined : undefined,
     ps: 100,
   });
   const projectsFromApi = projectsDataFromApi?.components ?? [];
@@ -82,7 +82,7 @@ export default function ProjectList({
   const [sortDir, setSortDir] = useState<SortDir>('desc');
 
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
-  type BulkRow = { id: string; costCenterId: string; allocationPercentage: number };
+  interface BulkRow { id: string; costCenterId: string; allocationPercentage: number }
   const [bulkRows, setBulkRows] = useState<BulkRow[]>([]);
   const [bulkReplaceExisting, setBulkReplaceExisting] = useState(true);
   const [bulkInProgress, setBulkInProgress] = useState(false);
@@ -132,7 +132,7 @@ export default function ProjectList({
         const nclocMeasure = response.component.measures?.find(m => m.metric === 'ncloc');
         return {
           key: project.key,
-          ncloc: nclocMeasure ? parseInt(nclocMeasure.value || '0') : 0,
+          ncloc: nclocMeasure ? parseInt(nclocMeasure.value ?? '0') : 0,
         };
       },
       enabled: !!project.key,
@@ -336,8 +336,8 @@ export default function ProjectList({
         const project = projects.find(p => p.key === key);
         return {
           key,
-          ncloc: projectLOCMap.get(key) || 0,
-          tags: project?.tags || [],
+          ncloc: projectLOCMap.get(key) ?? 0,
+          tags: project?.tags ?? [],
         };
       });
       onProjectsDataChange(projectsWithData);
@@ -513,7 +513,7 @@ export default function ProjectList({
               </button>
               <button
                 type="button"
-                onClick={handleBulkAssignSubmit}
+                onClick={() => void handleBulkAssignSubmit()}
                 disabled={bulkInProgress || !bulkIsValid}
                 className="btn-sonar-primary px-4 py-2 rounded-lg font-body text-sm disabled:opacity-50"
               >
@@ -651,7 +651,7 @@ export default function ProjectList({
               </thead>
               <tbody>
                 {sortedProjects.map((project) => {
-                  const loc = projectLOCMap.get(project.key) || 0;
+                  const loc = projectLOCMap.get(project.key) ?? 0;
                   const isSelected = selectedProjects.has(project.key);
                   const allocationTotal = projectAllocationTotalByKey.get(project.key) ?? 0;
                   const hasAllocationError = isSelected && Math.round(allocationTotal) !== 100;
@@ -739,7 +739,7 @@ export default function ProjectList({
             </table>
           ) : (
             sortedProjects.map((project) => {
-              const loc = projectLOCMap.get(project.key) || 0;
+              const loc = projectLOCMap.get(project.key) ?? 0;
               const isSelected = selectedProjects.has(project.key);
 
               return (

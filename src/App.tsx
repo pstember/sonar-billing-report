@@ -10,16 +10,17 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    checkAuth();
-  }, []);
-
   const checkAuth = async () => {
     const auth = await getAuthConfig();
     // Enterprise key is required; treat missing key as not authenticated
     setIsAuthenticated(!!(auth?.token && auth?.enterpriseKey?.trim()));
     setIsLoading(false);
   };
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: load auth on mount then update state
+    void checkAuth();
+  }, []);
 
   if (isLoading) {
     return (

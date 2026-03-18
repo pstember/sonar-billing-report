@@ -1,0 +1,7 @@
+{
+  "errors": [
+    {
+      "msg": "'ps' value (500) must be less than 100"
+    }
+  ]
+}

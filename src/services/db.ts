@@ -78,12 +78,12 @@ export async function saveAuthConfig(config: Omit<AuthConfig, 'id' | 'createdAt'
     ...config,
     createdAt: new Date().toISOString(),
     lastValidated: new Date().toISOString(),
-  });
+  }) as Promise<number>;
 }
 
 export async function getAuthConfig(): Promise<AuthConfig | undefined> {
   const configs = await db.auth.toArray();
-  return configs[0];
+  return configs[0] as AuthConfig | undefined;
 }
 
 export async function updateAuthValidation(): Promise<void> {
@@ -105,12 +105,12 @@ export async function clearAuth(): Promise<void> {
 export async function saveTagMapping(mapping: TagMapping): Promise<number> {
   const existing = await db.tagMappings.where('tag').equals(mapping.tag).first();
 
-  if (existing && existing.id) {
+  if (existing?.id) {
     await db.tagMappings.update(existing.id, mapping);
     return existing.id;
   }
 
-  return db.tagMappings.add(mapping);
+  return db.tagMappings.add(mapping) as Promise<number>;
 }
 
 export async function getTagMappings(): Promise<TagMapping[]> {
@@ -146,7 +146,7 @@ function generateId(prefix: string): string {
 }
 
 export async function saveCostCenter(cc: CostCenter | Omit<CostCenter, 'id'>): Promise<string> {
-  const withId: CostCenter = 'id' in cc && cc.id ? cc as CostCenter : { ...cc, id: generateId('cc') };
+  const withId: CostCenter = 'id' in cc && cc.id ? cc : { ...cc, id: generateId('cc') };
   await db.costCenters.put(withId);
   return withId.id;
 }
@@ -171,7 +171,7 @@ export async function getCostCenterAssignment(id: string): Promise<CostCenterAss
 }
 
 export async function saveCostCenterAssignment(a: CostCenterAssignment | Omit<CostCenterAssignment, 'id'>): Promise<string> {
-  const withId: CostCenterAssignment = 'id' in a && a.id ? a as CostCenterAssignment : { ...a, id: generateId('cca') };
+  const withId: CostCenterAssignment = 'id' in a && a.id ? a : { ...a, id: generateId('cca') };
   await db.costCenterAssignments.put(withId);
   return withId.id;
 }
@@ -190,10 +190,10 @@ export async function migrateTagMappingsToCostCenters(): Promise<void> {
 
   const nameToId = new Map<string, string>();
   for (const m of mappings) {
-    const name = (m.costCenter?.trim() || m.teamName?.trim() || 'Unnamed');
+    const name = (m.costCenter?.trim() ?? m.teamName?.trim() ?? 'Unnamed');
     if (!nameToId.has(name)) {
       const id = `cc-${name.toLowerCase().replaceAll(/\s+/g, '-')}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-      await db.costCenters.put({ id, name, code: m.costCenter?.trim() || undefined });
+      await db.costCenters.put({ id, name, code: m.costCenter?.trim() ?? undefined });
       nameToId.set(name, id);
     }
     const costCenterId = nameToId.get(name)!;
@@ -213,7 +213,7 @@ export async function migrateTagMappingsToCostCenters(): Promise<void> {
  */
 export async function saveBillingConfig(config: BillingConfiguration): Promise<number> {
   await db.billingConfig.clear();
-  return db.billingConfig.add(config);
+  return db.billingConfig.add(config) as Promise<number>;
 }
 
 export async function getBillingConfig(): Promise<BillingConfiguration | undefined> {
@@ -282,7 +282,7 @@ export async function getSetting<T>(key: string): Promise<T | undefined> {
  * Historical Snapshots Management
  */
 export async function saveHistoricalSnapshot(snapshot: HistoricalSnapshot): Promise<number> {
-  return db.historicalSnapshots.add(snapshot);
+  return db.historicalSnapshots.add(snapshot) as Promise<number>;
 }
 
 export async function getHistoricalSnapshots(params: {

@@ -1,0 +1,21 @@
+{
+  "paging": {
+    "pageIndex": 1,
+    "pageSize": 100,
+    "total": 2
+  },
+  "projects": [
+    {
+      "projectKey": "my-org_project-a",
+      "projectName": "Project A",
+      "ncloc": 15000,
+      "visibility": "private"
+    },
+    {
+      "projectKey": "my-org_project-b",
+      "projectName": "Project B",
+      "ncloc": 8000,
+      "visibility": "public"
+    }
+  ]
+}

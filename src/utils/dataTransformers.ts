@@ -60,7 +60,7 @@ export function getLanguagePercentages(
  */
 export function sortLanguagesByLOC(
   distribution: LanguageDistribution
-): Array<[string, number]> {
+): [string, number][] {
   return Object.entries(distribution).sort((a, b) => b[1] - a[1]);
 }
 

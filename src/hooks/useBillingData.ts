@@ -166,9 +166,9 @@ export function useBillingOverview(organization?: { key: string; uuid: string })
   );
 
   // Calculate totals from NCLOC distribution
-  const totalProjects = nclocData?.paging?.total || 0;
-  const privateProjects = nclocData?.projects?.filter(p => p.visibility === 'private') || [];
-  const publicProjects = nclocData?.projects?.filter(p => p.visibility === 'public') || [];
+  const totalProjects = nclocData?.paging?.total ?? 0;
+  const privateProjects = nclocData?.projects?.filter(p => p.visibility === 'private') ?? [];
+  const publicProjects = nclocData?.projects?.filter(p => p.visibility === 'public') ?? [];
 
   const privateLOC = privateProjects.reduce((sum, p) => sum + p.ncloc, 0);
   const publicLOC = publicProjects.reduce((sum, p) => sum + p.ncloc, 0);
@@ -178,7 +178,7 @@ export function useBillingOverview(organization?: { key: string; uuid: string })
   const summary = consumptionData?.consumptionSummaries?.[0];
   const consumed = summary?.usage;
   const limit = summary?.allowance;
-  const usagePercent = limit && limit > 0 ? ((consumed || 0) / limit) * 100 : 0;
+  const usagePercent = limit && limit > 0 ? ((consumed ?? 0) / limit) * 100 : 0;
   const mode: ConsumptionMode | undefined =
     summary?.mode === 'absoluteReserved' || summary?.mode === 'unreserved' ? summary.mode : undefined;
 
@@ -202,15 +202,15 @@ export function useBillingOverview(organization?: { key: string; uuid: string })
     // Per-project data
     privateProjects,
     publicProjects,
-    allProjects: nclocData?.projects || [],
+    allProjects: nclocData?.projects ?? [],
 
     // Loading states
-    isLoading: isLoadingNCLOC || isLoadingConsumption,
+    isLoading: isLoadingNCLOC ?? isLoadingConsumption,
     isLoadingNCLOC,
     isLoadingConsumption,
 
     // Errors
-    error: nclocError || consumptionError,
+    error: nclocError ?? consumptionError,
     nclocError,
     consumptionError,
 
@@ -296,12 +296,12 @@ export function useMultiOrgBillingOverview(orgs: SelectedOrganization[]) {
   const error = queries.find((q) => q.error)?.error;
   const byOrg: BillingOverviewOrg[] = queries.map((q) => q.data).filter(Boolean) as BillingOverviewOrg[];
   /** One entry per selected org: resolved data or loading/error so the table can show all selected orgs */
-  const orgResults: Array<{
+  const orgResults: {
     org: SelectedOrganization;
     data: BillingOverviewOrg | undefined;
     isPending: boolean;
     error: Error | null;
-  }> = orgs.map((org, i) => ({
+  }[] = orgs.map((org, i) => ({
     org,
     data: queries[i]?.data,
     isPending: queries[i]?.status === 'pending',

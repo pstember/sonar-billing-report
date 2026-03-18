@@ -1,0 +1,34 @@
+{
+  "component": {
+    "key": "my-org_project-a",
+    "name": "Project A",
+    "qualifier": "TRK",
+    "measures": [
+      {
+        "metric": "ncloc",
+        "value": "15000"
+      },
+      {
+        "metric": "ncloc_language_distribution",
+        "value": "java=10000;javascript=5000"
+      },
+      {
+        "metric": "coverage",
+        "value": "85.2"
+      }
+    ]
+  },
+  "metrics": [
+    {
+      "key": "ncloc",
+      "name": "Lines of Code",
+      "description": "Non-commenting lines of code",
+      "domain": "Size",
+      "type": "INT",
+      "higherValuesAreBetter": false,
+      "qualitative": false,
+      "hidden": false,
+      "custom": false
+    }
+  ]
+}

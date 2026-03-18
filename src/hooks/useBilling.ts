@@ -37,7 +37,7 @@ export function useSaveTagMapping() {
   return useMutation({
     mutationFn: saveTagMapping,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tagMappings'] });
+      void queryClient.invalidateQueries({ queryKey: ['tagMappings'] });
     },
   });
 }
@@ -51,7 +51,7 @@ export function useDeleteTagMapping() {
   return useMutation({
     mutationFn: deleteTagMapping,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tagMappings'] });
+      void queryClient.invalidateQueries({ queryKey: ['tagMappings'] });
     },
   });
 }
@@ -65,7 +65,7 @@ export function useImportTagMappings() {
   return useMutation({
     mutationFn: importTagMappings,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tagMappings'] });
+      void queryClient.invalidateQueries({ queryKey: ['tagMappings'] });
     },
   });
 }
@@ -89,7 +89,7 @@ export function useSaveBillingConfig() {
   return useMutation({
     mutationFn: saveBillingConfig,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['billingConfig'] });
+      void queryClient.invalidateQueries({ queryKey: ['billingConfig'] });
     },
   });
 }
@@ -116,8 +116,8 @@ export function useSaveCostCenter() {
   return useMutation({
     mutationFn: saveCostCenter,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['costCenters'] });
-      queryClient.invalidateQueries({ queryKey: ['costCenterAssignments'] });
+      void queryClient.invalidateQueries({ queryKey: ['costCenters'] });
+      void queryClient.invalidateQueries({ queryKey: ['costCenterAssignments'] });
     },
   });
 }
@@ -127,8 +127,8 @@ export function useDeleteCostCenter() {
   return useMutation({
     mutationFn: deleteCostCenter,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['costCenters'] });
-      queryClient.invalidateQueries({ queryKey: ['costCenterAssignments'] });
+      void queryClient.invalidateQueries({ queryKey: ['costCenters'] });
+      void queryClient.invalidateQueries({ queryKey: ['costCenterAssignments'] });
     },
   });
 }
@@ -138,7 +138,7 @@ export function useSaveCostCenterAssignment() {
   return useMutation({
     mutationFn: saveCostCenterAssignment,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['costCenterAssignments'] });
+      void queryClient.invalidateQueries({ queryKey: ['costCenterAssignments'] });
     },
   });
 }
@@ -148,7 +148,7 @@ export function useDeleteCostCenterAssignment() {
   return useMutation({
     mutationFn: deleteCostCenterAssignment,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['costCenterAssignments'] });
+      void queryClient.invalidateQueries({ queryKey: ['costCenterAssignments'] });
     },
   });
 }

@@ -28,7 +28,9 @@ export default function CostCalculator({ planAllowanceLOC }: CostCalculatorProps
     }
   );
 
+  // Sync config prop into local form when it changes (e.g. after load)
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional prop-to-state sync
     if (config) setFormData(config);
   }, [config]);
 
@@ -94,7 +96,7 @@ export default function CostCalculator({ planAllowanceLOC }: CostCalculatorProps
 
           <div className="flex gap-2">
             <button
-              onClick={handleSave}
+              onClick={() => void handleSave()}
               className="btn-sonar-primary px-4 py-2 rounded-lg"
             >
               Save

@@ -31,7 +31,7 @@ class SonarCloudService {
 
   constructor(config: SonarCloudConfig) {
     this.config = {
-      baseUrl: config.baseUrl || DEFAULT_BASE_URL,
+      baseUrl: config.baseUrl ?? DEFAULT_BASE_URL,
       token: config.token,
       organization: config.organization,
     };
@@ -66,12 +66,12 @@ class SonarCloudService {
       });
 
       if (!response.ok) {
-        const errorData: SonarCloudError = await response.json();
-        const errorMessage = errorData.errors?.[0]?.msg || `HTTP ${response.status}: ${response.statusText}`;
+        const errorData = (await response.json()) as SonarCloudError;
+        const errorMessage = errorData.errors?.[0]?.msg ?? `HTTP ${response.status}: ${response.statusText}`;
         throw new Error(errorMessage);
       }
 
-      return await response.json();
+      return (await response.json()) as T;
     } catch (error) {
       if (error instanceof Error) {
         throw error;
@@ -87,19 +87,19 @@ class SonarCloudService {
   private async billingRequest<T>(
     endpoint: string,
     options: RequestInit = {},
-    requireAuth: boolean = true
+    requireAuth = true
   ): Promise<T> {
     // Billing API doesn't use /api prefix - goes directly to /billing/*
     const url = `${this.config.baseUrl}${endpoint}`;
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      ...options.headers as Record<string, string>,
+      ...(options.headers as Record<string, string>),
     };
 
     // Only add Authorization if required (some endpoints like organizations don't need it)
     if (requireAuth) {
-      headers['Authorization'] = `Bearer ${this.config.token}`;
+      headers.Authorization = `Bearer ${this.config.token}`;
     }
 
     try {
@@ -109,12 +109,12 @@ class SonarCloudService {
       });
 
       if (!response.ok) {
-        const errorData: SonarCloudError = await response.json();
-        const errorMessage = errorData.errors?.[0]?.msg || `HTTP ${response.status}: ${response.statusText}`;
+        const errorData = (await response.json()) as SonarCloudError;
+        const errorMessage = errorData.errors?.[0]?.msg ?? `HTTP ${response.status}: ${response.statusText}`;
         throw new Error(errorMessage);
       }
 
-      return await response.json();
+      return (await response.json()) as T;
     } catch (error) {
       if (error instanceof Error) {
         throw error;
@@ -133,7 +133,7 @@ class SonarCloudService {
     const searchParams = new URLSearchParams();
 
     // Default to member=true if no parameters provided
-    const member = params.member !== undefined ? params.member : true;
+    const member = params.member ?? true;
     searchParams.append('member', member.toString());
 
     if (params.organizations) {
@@ -167,7 +167,7 @@ class SonarCloudService {
    * Returns array with enterprise ID and metadata
    */
   async getEnterpriseDetails(enterpriseKey?: string): Promise<Enterprise[]> {
-    const entKey = enterpriseKey || this.config.enterpriseKey;
+    const entKey = enterpriseKey ?? this.config.enterpriseKey;
     const searchParams = new URLSearchParams();
 
     if (entKey) {
@@ -203,9 +203,9 @@ class SonarCloudService {
    * NOTE: This requires browser session cookies - not usable with Bearer token
    */
   async getOrganizationDetails(organizationKey?: string): Promise<OrganizationDetails> {
-    const orgKey = organizationKey || this.config.organization;
+    const orgKey = organizationKey ?? this.config.organization;
     const searchParams = new URLSearchParams({
-      organizationKey: orgKey || '',
+      organizationKey: orgKey ?? '',
       excludeEligibility: 'true',
     });
 
@@ -228,7 +228,7 @@ class SonarCloudService {
   } = {}): Promise<ProjectsSearchResponse> {
     const searchParams = new URLSearchParams();
 
-    const org = params.organization || this.config.organization;
+    const org = params.organization ?? this.config.organization;
     if (org) searchParams.append('organization', org);
     if (params.p) searchParams.append('p', params.p.toString());
     if (params.ps) searchParams.append('ps', params.ps.toString());
@@ -248,7 +248,7 @@ class SonarCloudService {
   } = {}): Promise<ProjectTagsResponse> {
     const searchParams = new URLSearchParams();
 
-    const org = params.organization || this.config.organization;
+    const org = params.organization ?? this.config.organization;
     if (org) searchParams.append('organization', org);
     if (params.ps) searchParams.append('ps', params.ps.toString());
 
@@ -324,7 +324,7 @@ class SonarCloudService {
   } = {}): Promise<NCLOCDistributionResponse> {
     const searchParams = new URLSearchParams();
 
-    const org = params.organization || this.config.organization;
+    const org = params.organization ?? this.config.organization;
     if (org) searchParams.append('organization', org);
     if (params.p) searchParams.append('p', params.p.toString());
     if (params.ps) searchParams.append('ps', params.ps.toString());
@@ -354,8 +354,8 @@ class SonarCloudService {
 
     const searchParams = new URLSearchParams({
       resourceId: params.resourceId,
-      key: params?.key || 'linesOfCode',
-      resourceType: params?.resourceType || 'organization',
+      key: params?.key ?? 'linesOfCode',
+      resourceType: params?.resourceType ?? 'organization',
     });
 
     if (params?.pageIndex) searchParams.append('pageIndex', params.pageIndex.toString());

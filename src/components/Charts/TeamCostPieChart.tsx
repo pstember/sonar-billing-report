@@ -11,7 +11,7 @@ import { formatCurrency } from '../../utils/costCalculations';
 import { formatLargeNumber } from '../../utils/dataTransformers';
 import { PIE_COLORS, PIE_UNASSIGNED_COLOR, PIE_UNUSED_COLOR } from '../../constants/chartColors';
 
-export type CostCenterSegment = { name: string; value: number; cost?: number; licenseShare?: number };
+export interface CostCenterSegment { name: string; value: number; cost?: number; licenseShare?: number }
 
 interface TeamCostPieChartProps {
   readonly costCenterSegments: CostCenterSegment[];
@@ -27,11 +27,11 @@ interface TeamCostPieChartProps {
   readonly currency?: string;
 }
 
-type PieEntry = { name: string; value: number; cost?: number; licenseShare?: number; fill?: string };
+interface PieEntry { name: string; value: number; cost?: number; licenseShare?: number; fill?: string }
 
 const CustomPieTooltip = (props: {
   active?: boolean;
-  payload?: Array<{ payload?: PieEntry }>;
+  payload?: { payload?: PieEntry }[];
   showUnused: 'all' | 'allocated';
   currency: string;
 } & Record<string, unknown>) => {

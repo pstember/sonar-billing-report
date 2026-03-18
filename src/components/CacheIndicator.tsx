@@ -18,10 +18,10 @@ export default function CacheIndicator() {
     window.addEventListener('offline', handleOffline);
 
     // Load cache size
-    getCacheSize().then(setCacheSize);
+    void getCacheSize().then(setCacheSize);
 
     // Clean expired cache on mount
-    clearExpiredCache();
+    void clearExpiredCache();
 
     return () => {
       window.removeEventListener('online', handleOnline);

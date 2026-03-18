@@ -1,0 +1,24 @@
+{
+  "paging": {
+    "pageIndex": 1,
+    "pageSize": 100,
+    "total": 2
+  },
+  "components": [
+    {
+      "key": "my-org_project-a",
+      "name": "Project A",
+      "qualifier": "TRK",
+      "visibility": "private",
+      "lastAnalysisDate": "2024-01-15T10:00:00+0000",
+      "tags": ["team-frontend", "legacy"]
+    },
+    {
+      "key": "my-org_project-b",
+      "name": "Project B",
+      "qualifier": "TRK",
+      "visibility": "public",
+      "tags": ["team-backend"]
+    }
+  ]
+}

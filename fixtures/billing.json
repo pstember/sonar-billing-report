@@ -1,0 +1,25 @@
+{
+  "billingConfig": {
+    "contractValue": 50000,
+    "defaultRate": 2.5,
+    "currency": "USD",
+    "languageRates": {
+      "java": 3,
+      "javascript": 2
+    },
+    "tieredPricing": [
+      { "minLOC": 0, "maxLOC": 10000, "ratePerKLOC": 2 },
+      { "minLOC": 10000, "maxLOC": 50000, "ratePerKLOC": 1.5 },
+      { "minLOC": 50000, "ratePerKLOC": 1 }
+    ]
+  },
+  "costCenters": [
+    { "id": "cc-1", "name": "Engineering", "code": "ENG" },
+    { "id": "cc-2", "name": "Platform", "code": "PLT" }
+  ],
+  "costCenterAssignments": [
+    { "id": "a1", "costCenterId": "cc-1", "type": "tag", "tag": "team-frontend", "allocationPercentage": 100 },
+    { "id": "a2", "costCenterId": "cc-2", "type": "tag", "tag": "team-backend", "allocationPercentage": 100 },
+    { "id": "a3", "costCenterId": "cc-1", "type": "project", "projectKey": "my-org_project-a", "allocationPercentage": 100 }
+  ]
+}

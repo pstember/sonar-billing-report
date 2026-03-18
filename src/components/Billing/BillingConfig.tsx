@@ -26,22 +26,25 @@ const DEFAULT_CONFIG: BillingPlan = {
 
 const STORAGE_KEY = 'sonarcloud-billing-config';
 
+function parseStoredConfig(saved: string): BillingPlan {
+  const parsed = JSON.parse(saved) as BillingPlan;
+  return {
+    locLimit: Number(parsed?.locLimit) || DEFAULT_CONFIG.locLimit,
+    locUsed: Number(parsed?.locUsed) || DEFAULT_CONFIG.locUsed,
+    planName: String(parsed?.planName ?? DEFAULT_CONFIG.planName),
+    addOns: Array.isArray(parsed?.addOns) ? parsed.addOns.map(String) : DEFAULT_CONFIG.addOns,
+  };
+}
+
 export default function BillingConfig({ onConfigChange }: BillingConfigProps) {
   const [isEditing, setIsEditing] = useState(false);
-  const [config, setConfig] = useState<BillingPlan>(DEFAULT_CONFIG);
-
-  // Load from localStorage on mount
-  useEffect(() => {
+  const [config, setConfig] = useState<BillingPlan>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setConfig(parsed);
-        onConfigChange?.(parsed);
-      } catch (e) {
-        console.error('Failed to parse billing config:', e);
-      }
-    }
+    return saved ? parseStoredConfig(saved) : DEFAULT_CONFIG;
+  });
+
+  useEffect(() => {
+    onConfigChange?.(config);
   }, []);
 
   const handleSave = () => {
@@ -53,14 +56,14 @@ export default function BillingConfig({ onConfigChange }: BillingConfigProps) {
   const handleCancel = () => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
-      setConfig(JSON.parse(saved));
+      setConfig(parseStoredConfig(saved));
     }
     setIsEditing(false);
   };
 
   const addAddOn = () => {
     const newAddOn = prompt('Enter add-on name (e.g., "Security Analysis", "Pull Request Decoration"):');
-    if (newAddOn && newAddOn.trim()) {
+    if (newAddOn?.trim()) {
       setConfig(prev => ({
         ...prev,
         addOns: [...prev.addOns, newAddOn.trim()],

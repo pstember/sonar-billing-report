@@ -56,11 +56,11 @@ export default function CostCenters({ organization, onProjectsSelected, projects
   useEffect(() => {
     if (migrationDone.current || costCenters.length > 0) return;
     migrationDone.current = true;
-    getTagMappings().then((mappings) => {
+    void getTagMappings().then((mappings) => {
       if (mappings.length > 0) {
-        migrateTagMappingsToCostCenters().then(() => {
-          queryClient.invalidateQueries({ queryKey: ['costCenters'] });
-          queryClient.invalidateQueries({ queryKey: ['costCenterAssignments'] });
+        void migrateTagMappingsToCostCenters().then(() => {
+          void queryClient.invalidateQueries({ queryKey: ['costCenters'] });
+          void queryClient.invalidateQueries({ queryKey: ['costCenterAssignments'] });
         });
       }
     });
@@ -71,7 +71,7 @@ export default function CostCenters({ organization, onProjectsSelected, projects
   const deleteAssignment = useDeleteCostCenterAssignment();
 
   const { data: projectsDataFromApi } = useProjects({
-    organization: projectsWithOrg == null ? organization || undefined : undefined,
+    organization: projectsWithOrg == null ? organization ?? undefined : undefined,
     ps: 100,
   });
   const projects = projectsWithOrg ?? projectsDataFromApi?.components ?? [];
@@ -131,7 +131,7 @@ export default function CostCenters({ organization, onProjectsSelected, projects
             metricKeys: ['ncloc'],
           });
           const nclocMeasure = response.component.measures?.find((m) => m.metric === 'ncloc');
-          return { key, ncloc: nclocMeasure ? Number.parseInt(nclocMeasure.value || '0', 10) : 0 };
+          return { key, ncloc: nclocMeasure ? Number.parseInt(nclocMeasure.value ?? '0', 10) : 0 };
         },
         enabled: !!key,
       })),
@@ -170,7 +170,7 @@ export default function CostCenters({ organization, onProjectsSelected, projects
       );
     }
     return {
-      byAssignment: new Map<string, number>() as Map<string, number>,
+      byAssignment: new Map<string, number>(),
       byCostCenter,
     };
   }, [costCenters, projectOnlyAssignments, projectNclocByKey]);
@@ -265,7 +265,7 @@ export default function CostCenters({ organization, onProjectsSelected, projects
   const handleBulkAssign = useCallback(
     async (
       projectKeys: string[],
-      assignments: Array<{ costCenterId: string; allocationPercentage: number }>,
+      assignments: { costCenterId: string; allocationPercentage: number }[],
       replaceExisting: boolean
     ) => {
       if (assignments.length === 0) return;
@@ -326,13 +326,13 @@ export default function CostCenters({ organization, onProjectsSelected, projects
           organization={organization}
           projectsWithOrg={projectsWithOrg}
           preferredNclocMap={mergedNclocMapForList}
-          onProjectsSelected={() => {}}
+          onProjectsSelected={() => { /* no-op */ }}
           selectedProjectKeys={selectedProjectKeys}
           costCenters={costCenters}
           assignments={allAssignments}
-          onSaveProjectAssignment={handleSaveProjectAssignment}
-          onClearProjectAssignment={handleClearProjectAssignment}
-          onBulkAssign={handleBulkAssign}
+          onSaveProjectAssignment={(a, b) => void handleSaveProjectAssignment(a, b)}
+          onClearProjectAssignment={(a) => void handleClearProjectAssignment(a)}
+          onBulkAssign={(a, b, c) => void handleBulkAssign(a, b, c)}
           onBulkActionSuccess={setBulkSuccessMessage}
         />
 
@@ -351,7 +351,7 @@ export default function CostCenters({ organization, onProjectsSelected, projects
         </p>
 
         {showAddCC && (
-          <form onSubmit={handleSaveCostCenter} className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+          <form onSubmit={(e) => { e.preventDefault(); void handleSaveCostCenter(e); }} className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label htmlFor="cost-center-name" className="block text-sm font-medium mb-1 text-sonar-purple dark:text-white">Name</label>
@@ -407,7 +407,7 @@ export default function CostCenters({ organization, onProjectsSelected, projects
                     <tr key={cc.id} className="border-t dark:border-gray-600">
                       <td className="px-3 py-2">
                         {editingCC?.id === cc.id ? (
-                          <form onSubmit={(e) => { handleSaveCostCenter(e); setEditingCC(null); }} className="flex items-center gap-2">
+                          <form onSubmit={(e) => { e.preventDefault(); void handleSaveCostCenter(e); setEditingCC(null); }} className="flex items-center gap-2">
                             <input
                               type="text"
                               value={editingCC.name}
@@ -447,7 +447,7 @@ export default function CostCenters({ organization, onProjectsSelected, projects
                         {editingCC?.id !== cc.id && (
                           <>
                             <button type="button" onClick={() => setEditingCC(cc)} className="text-sonar-blue hover:text-sonar-blue-secondary hover:underline text-sm mr-2 font-body">Edit</button>
-                            <button type="button" onClick={() => handleDeleteCostCenter(cc)} className="text-red-600 dark:text-red-400 hover:underline text-sm font-body">Delete</button>
+                            <button type="button" onClick={() => void handleDeleteCostCenter(cc)} className="text-red-600 dark:text-red-400 hover:underline text-sm font-body">Delete</button>
                           </>
                         )}
                       </td>

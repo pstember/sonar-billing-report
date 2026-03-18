@@ -106,11 +106,11 @@ export interface HistoricalSnapshot {
 
 export interface TrendData {
   teamName: string;
-  data: Array<{
+  data: {
     date: string;
     ncloc: number;
     cost: number;
-  }>;
+  }[];
   growth: {
     absolute: number; // Change in NLOC
     percentage: number; // % change
