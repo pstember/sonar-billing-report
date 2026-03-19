@@ -24,7 +24,7 @@ The application will:
 - Automatically open your browser
 - Show the welcome screen
 
-![Welcome / login screen](images/login_page.png)
+![Welcome / login screen — Beta-labelled title](images/login_page.png)
 
 Enter your SonarQube Cloud token on the welcome screen (get one from SonarQube Cloud → My Account → Security → Generate Token). The app stores it in the browser and does not need a `.env` file.
 

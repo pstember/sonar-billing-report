@@ -2,7 +2,7 @@
 
 A self-contained web application for visualizing SonarQube Cloud metrics focused on billing and cost allocation.
 
-![Billing dashboard overview](images/overview_page.png)
+![Billing dashboard overview — Beta-labelled header](images/overview_page.png)
 
 ## ✨ Features
 
