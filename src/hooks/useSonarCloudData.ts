@@ -32,17 +32,18 @@ async function getSonarCloudService(): Promise<SonarCloudService> {
 }
 
 /**
- * Query: Search projects
+ * Query: Search projects (all pages per organization, up to API page size per request).
  */
 export function useProjects(params: {
   organization?: string;
+  /** @deprecated Ignored; all pages are fetched. */
   ps?: number;
 } = {}) {
   return useQuery({
-    queryKey: ['projects', params],
+    queryKey: ['projects', 'all', params.organization],
     queryFn: async () => {
       const service = await getSonarCloudService();
-      return service.searchProjects(params);
+      return service.searchProjectsAll({ organization: params.organization });
     },
     enabled: !!params.organization, // Only fetch if organization is specified
   });
@@ -59,13 +60,13 @@ export interface OrgKeyName {
  * Fetch projects for multiple organizations and merge with organization attribution.
  * Each project gets organizationKey and organizationName so the UI can show the required Organization column.
  */
-export function useProjectsForOrganizations(orgs: OrgKeyName[], ps = 100) {
+export function useProjectsForOrganizations(orgs: OrgKeyName[]) {
   const queries = useQueries({
     queries: orgs.map((org) => ({
-      queryKey: ['projects', { organization: org.key, ps }],
+      queryKey: ['projects', 'all', org.key],
       queryFn: async () => {
         const service = await getSonarCloudService();
-        const res = await service.searchProjects({ organization: org.key, ps });
+        const res = await service.searchProjectsAll({ organization: org.key });
         const components = (res.components ?? []).map((c) => ({
           ...c,
           organizationKey: org.key,

@@ -113,4 +113,26 @@ describe('useProjectsRealData', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.projects).toHaveLength(0);
   });
+
+  it('reports loading while history is still fetching after measures resolve', async () => {
+    let releaseHistory!: (value: unknown) => void;
+    const historyDeferred = new Promise((resolve) => {
+      releaseHistory = resolve;
+    });
+
+    mockGetComponentHistory.mockReturnValue(historyDeferred as Promise<unknown>);
+
+    const wrapper = createWrapper(queryClient);
+    const { result } = renderHook(() => useProjectsRealData(['my-org_project']), { wrapper });
+
+    await waitFor(() => expect(result.current.projects).toHaveLength(1));
+    expect(result.current.isLoading).toBe(true);
+
+    releaseHistory({
+      measures: [{ metric: 'ncloc', history: [{ date: '2025-01-15', value: '5000' }] }],
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.monthlyTrendByProject.length).toBeGreaterThan(0);
+  });
 });

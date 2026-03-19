@@ -33,13 +33,16 @@ async function getSonarCloudService(): Promise<SonarCloudService> {
  */
 export function useBillingNCLOCDistribution(params: {
   organization?: string;
+  /** @deprecated Ignored; all pages are fetched up to API max page size. */
   ps?: number;
 } = {}) {
   return useQuery({
-    queryKey: ['billingNCLOC', params],
+    queryKey: ['billingNCLOC', params.organization],
     queryFn: async () => {
       const service = await getSonarCloudService();
-      return service.getBillingNCLOCDistribution(params);
+      return service.getBillingNCLOCDistributionAll({
+        organization: params.organization,
+      });
     },
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
     enabled: !!params.organization, // Only fetch if organization is specified
@@ -164,7 +167,7 @@ export function useBillingOverview(organization?: { key: string; uuid: string })
     data: nclocData,
     isLoading: isLoadingNCLOC,
     error: nclocError,
-  } = useBillingNCLOCDistribution({ organization: organization?.key, ps: 100 });
+  } = useBillingNCLOCDistribution({ organization: organization?.key });
 
   // Get consumption summary (total consumed vs limit)
   // Uses organization UUID
@@ -216,7 +219,7 @@ export function useBillingOverview(organization?: { key: string; uuid: string })
     allProjects: nclocData?.projects ?? [],
 
     // Loading states
-    isLoading: isLoadingNCLOC ?? isLoadingConsumption,
+    isLoading: isLoadingNCLOC || isLoadingConsumption,
     isLoadingNCLOC,
     isLoadingConsumption,
 
@@ -257,7 +260,7 @@ async function fetchBillingOverviewForOrg(
   org: { key: string; uuid: string; name: string }
 ): Promise<BillingOverviewOrg> {
   const [nclocRes, consumptionRes] = await Promise.all([
-    service.getBillingNCLOCDistribution({ organization: org.key, ps: 100 }),
+    service.getBillingNCLOCDistributionAll({ organization: org.key }),
     service.getConsumptionSummaries({
       resourceId: org.uuid,
       key: 'linesOfCode',

@@ -90,7 +90,6 @@ export default function CostCenters({ organization, onProjectsSelected, projects
 
   const { data: projectsDataFromApi } = useProjects({
     organization: projectsWithOrg == null ? organization ?? undefined : undefined,
-    ps: 100,
   });
   const projects = projectsWithOrg ?? projectsDataFromApi?.components ?? [];
 

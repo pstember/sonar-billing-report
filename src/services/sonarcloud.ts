@@ -19,6 +19,7 @@ import type {
   Enterprise,
   EnterpriseOrganization,
 } from '../types/sonarcloud';
+import { MAX_PAGE_SIZE } from '../constants/api';
 
 // Use empty string to use same origin (our proxy server)
 // When app runs on http://localhost:3000, API calls go to http://localhost:3000/api/*
@@ -259,6 +260,41 @@ class SonarCloudService {
   }
 
   /**
+   * Search all projects in an organization (paginates until every page is fetched, max 100 per request).
+   */
+  async searchProjectsAll(params: { organization?: string } = {}): Promise<ProjectsSearchResponse> {
+    const ps = MAX_PAGE_SIZE;
+    let page = 1;
+    const components: Project[] = [];
+    let total = 0;
+    const maxPages = 500;
+
+    for (;;) {
+      const res = await this.searchProjects({
+        organization: params.organization,
+        p: page,
+        ps,
+      });
+      const batch = res.components ?? [];
+      components.push(...batch);
+      total = res.paging?.total ?? components.length;
+      if (batch.length === 0 || batch.length < ps || components.length >= total || page >= maxPages) {
+        break;
+      }
+      page += 1;
+    }
+
+    return {
+      components,
+      paging: {
+        pageIndex: 1,
+        pageSize: ps,
+        total,
+      },
+    };
+  }
+
+  /**
    * Get all project tags in an organization
    */
   async getProjectTags(params: {
@@ -351,6 +387,41 @@ class SonarCloudService {
     return this.request<NCLOCDistributionResponse>(
       `/billing/get_ncloc_distribution?${searchParams.toString()}`
     );
+  }
+
+  /**
+   * Full NCLOC distribution for an organization (paginates with ps = MAX_PAGE_SIZE until all rows are fetched).
+   */
+  async getBillingNCLOCDistributionAll(params: { organization?: string } = {}): Promise<NCLOCDistributionResponse> {
+    const ps = MAX_PAGE_SIZE;
+    let page = 1;
+    const projects: NCLOCDistributionResponse['projects'] = [];
+    let total = 0;
+    const maxPages = 500;
+
+    for (;;) {
+      const res = await this.getBillingNCLOCDistribution({
+        organization: params.organization,
+        p: page,
+        ps,
+      });
+      const batch = res.projects ?? [];
+      projects.push(...batch);
+      total = res.paging?.total ?? projects.length;
+      if (batch.length === 0 || batch.length < ps || projects.length >= total || page >= maxPages) {
+        break;
+      }
+      page += 1;
+    }
+
+    return {
+      projects,
+      paging: {
+        pageIndex: 1,
+        pageSize: ps,
+        total,
+      },
+    };
   }
 
   /**

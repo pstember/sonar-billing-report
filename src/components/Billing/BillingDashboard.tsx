@@ -85,7 +85,6 @@ export default function BillingDashboard() {
   const { data: enterpriseData, isLoading: isLoadingEnterprise } = useEnterpriseOrganizations();
   const enterpriseOrgs = enterpriseData?.organizations ?? [];
   const enterpriseName = enterpriseData?.enterpriseName;
-  const hasMultipleOrgs = enterpriseOrgs.length >= 2;
 
   const applyViewMode = (mode: ViewMode) => {
     setViewMode(mode);
@@ -130,7 +129,6 @@ export default function BillingDashboard() {
   // Single-org: projects and billing
   const { data: allProjects } = useProjects({
     organization: isMultiOrg ? undefined : selectedOrganization?.key,
-    ps: 100,
   });
 
   // Multi-org: aggregated billing and merged projects
@@ -655,8 +653,14 @@ export default function BillingDashboard() {
                 className="h-10 w-10"
               />
               <div>
-                <h1 className="text-3xl font-bold text-sonar-purple dark:text-white">
-                  SonarQube Cloud Billing Dashboard
+                <h1 className="text-3xl font-bold text-sonar-purple dark:text-white flex flex-wrap items-center gap-2">
+                  <span>SonarQube Cloud Billing Dashboard</span>
+                  <span
+                    className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold font-body uppercase tracking-wide bg-sonar-teal/15 text-sonar-teal border border-sonar-teal/30 dark:bg-teal-900/30 dark:text-teal-200 dark:border-teal-600/40"
+                    title="This dashboard is in beta; behaviour and layout may change."
+                  >
+                    Beta
+                  </span>
                 </h1>
                 <p className="text-sm text-gray-600 dark:text-slate-300 mt-1">
                   Allocate code ownership and calculate costs across teams
@@ -1307,6 +1311,21 @@ export default function BillingDashboard() {
                     </div>
                   ); })()}
 
+                  {/* Cost configuration — after per-org breakdown when shown; always above Cost Centers */}
+                  <div className="space-y-4">
+                    {isMultiOrg && (
+                      <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border-l-4 border-sonar-blue rounded flex items-start gap-2">
+                        <svg className="w-5 h-5 text-sonar-blue shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <p className="text-sm text-gray-700 dark:text-gray-200 font-body">
+                          <span className="font-semibold">Multiple organisation view:</span> The plan allowance shown below is the combined total across {selectedOrganizations.length} organisation{selectedOrganizations.length === 1 ? '' : 's'}.
+                        </p>
+                      </div>
+                    )}
+                    <CostCalculator planAllowanceLOC={limit} />
+                  </div>
+
                   <CostCenters
                     key={isMultiOrg ? `multi-${selectedOrganizations.map((o) => o.key).join(',')}` : (selectedOrganization?.key ?? 'no-org')}
                     organization={isMultiOrg ? undefined : selectedOrganization?.key}
@@ -1390,21 +1409,6 @@ export default function BillingDashboard() {
               </p>
             </div>
           )}
-
-          {/* Config: cost calculator */}
-          <div className="space-y-4">
-            {isMultiOrg && (
-              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border-l-4 border-sonar-blue rounded flex items-start gap-2">
-                <svg className="w-5 h-5 text-sonar-blue shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <p className="text-sm text-gray-700 dark:text-gray-200 font-body">
-                  <span className="font-semibold">Multiple organisation view:</span> The plan allowance shown below is the combined total across {selectedOrganizations.length} organisation{selectedOrganizations.length === 1 ? '' : 's'}.
-                </p>
-              </div>
-            )}
-            <CostCalculator planAllowanceLOC={limit} />
-          </div>
 
           {/* Reports: export actions */}
           <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg p-6 border-t-4 border-sonar-blue">

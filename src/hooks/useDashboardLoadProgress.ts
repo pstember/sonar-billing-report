@@ -20,12 +20,27 @@ export interface LoadProgressItem {
   /** Ordered list of actual API sub-calls (HTTP requests) performed by this query */
   subCalls: LoadProgressSubCall[];
   status: 'pending' | 'success' | 'error';
-  fetchStatus: 'idle' | 'fetching';
+  fetchStatus: 'idle' | 'fetching' | 'paused';
 }
 
-function getFetchStatus(q: { state: { fetchStatus?: string } }): 'idle' | 'fetching' {
+function getFetchStatus(q: { state: { fetchStatus?: string } }): 'idle' | 'fetching' | 'paused' {
   const fs = (q.state as { fetchStatus?: string }).fetchStatus;
-  return fs === 'fetching' ? 'fetching' : 'idle';
+  if (fs === 'fetching') return 'fetching';
+  if (fs === 'paused') return 'paused';
+  return 'idle';
+}
+
+/** Pending+idle queries are still "work to do" but were omitted here, which hid the bar when the cache had many stale successes from persistence. */
+function shouldCountQuery(q: {
+  state: { status: string };
+  options: { enabled?: boolean };
+}): boolean {
+  const st = q.state.status;
+  const fs = getFetchStatus(q);
+  if (st === 'success' || st === 'error') return true;
+  if (fs === 'fetching') return true;
+  if (st === 'pending' && q.options.enabled !== false) return true;
+  return false;
 }
 
 const LABEL_DEFAULT: Record<string, string> = {
@@ -112,12 +127,7 @@ function getDashboardProgress(
   const cache = queryClient.getQueryCache();
   const queries = cache.findAll({ predicate: () => true });
   const fetchStatus = (q: (typeof queries)[0]) => getFetchStatus(q);
-  const activeQueries = queries.filter(
-    (q) =>
-      q.state.status === 'success' ||
-      q.state.status === 'error' ||
-      fetchStatus(q) === 'fetching'
-  );
+  const activeQueries = queries.filter(shouldCountQuery);
   const total = activeQueries.length;
   const fetching = activeQueries.filter((q) => fetchStatus(q) === 'fetching').length;
   /* Only count as completed when done and not currently fetching (avoids counting background refetches) */

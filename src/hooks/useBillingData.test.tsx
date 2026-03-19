@@ -17,6 +17,7 @@ import {
 
 const getAuthConfig = vi.fn();
 const mockGetBillingNCLOCDistribution = vi.fn();
+const mockGetBillingNCLOCDistributionAll = vi.fn();
 const mockGetConsumptionSummaries = vi.fn();
 const mockGetOrganizationDetails = vi.fn();
 const mockGetEnterpriseDetails = vi.fn();
@@ -25,6 +26,7 @@ const mockGetOrganizationsByIds = vi.fn();
 
 const createMockService = () => ({
   getBillingNCLOCDistribution: mockGetBillingNCLOCDistribution,
+  getBillingNCLOCDistributionAll: mockGetBillingNCLOCDistributionAll,
   getConsumptionSummaries: mockGetConsumptionSummaries,
   getOrganizationDetails: mockGetOrganizationDetails,
   getEnterpriseDetails: mockGetEnterpriseDetails,
@@ -54,6 +56,9 @@ describe('useBillingData', () => {
   beforeEach(() => {
     queryClient = new QueryClient({ defaultOptions: { queries: { retry: 0 } } });
     vi.clearAllMocks();
+    mockGetBillingNCLOCDistributionAll.mockImplementation(async (p: { organization?: string }) =>
+      mockGetBillingNCLOCDistribution({ organization: p.organization, p: 1, ps: 100 })
+    );
     getAuthConfig.mockResolvedValue({
       baseUrl: 'https://sonarcloud.io',
       token: 'test-token',
@@ -63,14 +68,14 @@ describe('useBillingData', () => {
 
   describe('useBillingNCLOCDistribution', () => {
     it('is disabled when organization is not provided', () => {
-      mockGetBillingNCLOCDistribution.mockResolvedValue({ projects: [], paging: { total: 0 } });
+      mockGetBillingNCLOCDistributionAll.mockResolvedValue({ projects: [], paging: { total: 0 } });
       const wrapper = createWrapper(queryClient);
       const { result } = renderHook(
         () => useBillingNCLOCDistribution({}),
         { wrapper }
       );
       expect(result.current.isFetching).toBe(false);
-      expect(mockGetBillingNCLOCDistribution).not.toHaveBeenCalled();
+      expect(mockGetBillingNCLOCDistributionAll).not.toHaveBeenCalled();
     });
 
     it('fetches and returns NCLOC data when organization is provided', async () => {
@@ -78,7 +83,7 @@ describe('useBillingData', () => {
         projects: [{ key: 'p1', ncloc: 1000, visibility: 'private' }],
         paging: { total: 1 },
       };
-      mockGetBillingNCLOCDistribution.mockResolvedValue(nclocData);
+      mockGetBillingNCLOCDistributionAll.mockResolvedValue(nclocData);
 
       const wrapper = createWrapper(queryClient);
       const { result } = renderHook(
@@ -88,9 +93,8 @@ describe('useBillingData', () => {
 
       await waitFor(() => expect(result.current.isSuccess).toBe(true));
       expect(result.current.data).toEqual(nclocData);
-      expect(mockGetBillingNCLOCDistribution).toHaveBeenCalledWith({
+      expect(mockGetBillingNCLOCDistributionAll).toHaveBeenCalledWith({
         organization: 'my-org',
-        ps: 100,
       });
     });
 
@@ -111,10 +115,7 @@ describe('useBillingData', () => {
   describe('useConsumptionSummaries', () => {
     it('is disabled when resourceId is not provided', () => {
       const wrapper = createWrapper(queryClient);
-      const { result } = renderHook(
-        () => useConsumptionSummaries({}),
-        { wrapper }
-      );
+      renderHook(() => useConsumptionSummaries({}), { wrapper });
       expect(mockGetConsumptionSummaries).not.toHaveBeenCalled();
     });
 
@@ -153,7 +154,7 @@ describe('useBillingData', () => {
 
   describe('useBillingOverview', () => {
     it('returns aggregated totals from NCLOC and consumption', async () => {
-      mockGetBillingNCLOCDistribution.mockResolvedValue({
+      mockGetBillingNCLOCDistributionAll.mockResolvedValue({
         projects: [
           { key: 'p1', ncloc: 1000, visibility: 'private' },
           { key: 'p2', ncloc: 500, visibility: 'public' },
@@ -184,11 +185,45 @@ describe('useBillingData', () => {
       expect(result.current.privateProjectCount).toBe(1);
       expect(result.current.publicProjectCount).toBe(1);
     });
+
+    it('isLoading stays true until both NCLOC and consumption queries finish', async () => {
+      mockGetBillingNCLOCDistributionAll.mockResolvedValue({
+        projects: [{ key: 'p1', ncloc: 100, visibility: 'private' }],
+        paging: { total: 1 },
+      });
+      mockGetConsumptionSummaries.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            setTimeout(
+              () =>
+                resolve({
+                  consumptionSummaries: [
+                    { usage: 100, allowance: 1000, mode: 'absoluteReserved' },
+                  ],
+                }),
+              80
+            );
+          })
+      );
+
+      const wrapper = createWrapper(queryClient);
+      const { result } = renderHook(
+        () => useBillingOverview({ key: 'my-org', uuid: 'org-uuid' }),
+        { wrapper }
+      );
+
+      await waitFor(() => expect(result.current.isLoadingNCLOC).toBe(false));
+      expect(result.current.isLoadingConsumption).toBe(true);
+      expect(result.current.isLoading).toBe(true);
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+      expect(result.current.consumed).toBe(100);
+    });
   });
 
   describe('useMultiOrgBillingOverview', () => {
     it('fetches per-org and aggregates', async () => {
-      mockGetBillingNCLOCDistribution.mockResolvedValue({
+      mockGetBillingNCLOCDistributionAll.mockResolvedValue({
         projects: [],
         paging: { total: 0 },
       });

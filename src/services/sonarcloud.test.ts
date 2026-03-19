@@ -88,7 +88,7 @@ describe('SonarCloudService', () => {
         `${BASE_URL}/api/organizations/search?member=true`,
         expect.objectContaining({
           headers: expect.objectContaining({
-            Authorization: 'Bearer test-token',
+            Authorization: `Basic ${btoa(`${TOKEN}:`)}`,
           }),
         })
       );
@@ -201,6 +201,43 @@ describe('SonarCloudService', () => {
     });
   });
 
+  describe('searchProjectsAll', () => {
+    it('merges multiple pages when total exceeds first page size', async () => {
+      service.updateConfig({ organization: 'my-org' });
+      const comp = (projectsSearchFixture as { components: { key: string; name: string; qualifier: string; visibility: string }[] }).components[0];
+      const page1 = {
+        paging: { pageIndex: 1, pageSize: 100, total: 120 },
+        components: Array.from({ length: 100 }, (_, i) => ({
+          ...comp,
+          key: `my-org_proj-${i}`,
+          name: `Project ${i}`,
+        })),
+      };
+      const page2 = {
+        paging: { pageIndex: 2, pageSize: 100, total: 120 },
+        components: Array.from({ length: 20 }, (_, i) => ({
+          ...comp,
+          key: `my-org_proj-${100 + i}`,
+          name: `Project ${100 + i}`,
+        })),
+      };
+      mockSuccess(page1);
+      mockSuccess(page2);
+      const result = await service.searchProjectsAll();
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(result.components).toHaveLength(120);
+      expect(result.paging.total).toBe(120);
+    });
+
+    it('single fetch when all projects fit one page', async () => {
+      service.updateConfig({ organization: 'my-org' });
+      mockSuccess(projectsSearchFixture);
+      const result = await service.searchProjectsAll();
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(result.components).toHaveLength(2);
+    });
+  });
+
   describe('getProjectTags', () => {
     it('calls /api/project_tags/search and returns tags', async () => {
       service.updateConfig({ organization: 'my-org' });
@@ -297,6 +334,44 @@ describe('SonarCloudService', () => {
         expect.any(Object)
       );
       expect(result).toEqual(nclocDistributionFixture);
+    });
+  });
+
+  describe('getBillingNCLOCDistributionAll', () => {
+    it('merges multiple pages when total exceeds first page size', async () => {
+      service.updateConfig({ organization: 'my-org' });
+      const page1 = {
+        paging: { pageIndex: 1, pageSize: 100, total: 150 },
+        projects: Array.from({ length: 100 }, (_, i) => ({
+          projectKey: `k${i}`,
+          projectName: `P${i}`,
+          ncloc: 1,
+          visibility: 'private' as const,
+        })),
+      };
+      const page2 = {
+        paging: { pageIndex: 2, pageSize: 100, total: 150 },
+        projects: Array.from({ length: 50 }, (_, i) => ({
+          projectKey: `k${100 + i}`,
+          projectName: `P${100 + i}`,
+          ncloc: 1,
+          visibility: 'private' as const,
+        })),
+      };
+      mockSuccess(page1);
+      mockSuccess(page2);
+      const result = await service.getBillingNCLOCDistributionAll();
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(result.projects).toHaveLength(150);
+      expect(result.paging.total).toBe(150);
+    });
+
+    it('single fetch when first page contains all rows', async () => {
+      service.updateConfig({ organization: 'my-org' });
+      mockSuccess(nclocDistributionFixture);
+      const result = await service.getBillingNCLOCDistributionAll();
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(result.projects).toHaveLength(2);
     });
   });
 

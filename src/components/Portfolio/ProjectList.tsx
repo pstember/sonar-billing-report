@@ -56,7 +56,6 @@ export default function ProjectList({
 }: ProjectListProps) {
   const { data: projectsDataFromApi, isLoading: projectsLoadingFromApi } = useProjects({
     organization: projectsWithOrg == null ? organization ?? undefined : undefined,
-    ps: 100,
   });
   const projectsFromApi = projectsDataFromApi?.components ?? [];
   const projects = projectsWithOrg ?? projectsFromApi;

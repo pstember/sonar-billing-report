@@ -245,8 +245,9 @@ export function useProjectsRealData(projectKeys: string[]) {
     });
   }, [monthlyTrendByProject]);
 
-  const isLoading = projectQueries.some((q) => q.isLoading) ?? historyQueries.some((q) => q.isLoading);
-  const isError = projectQueries.some((q) => q.isError) ?? historyQueries.some((q) => q.isError);
+  const isLoading =
+    projectQueries.some((q) => q.isLoading) || historyQueries.some((q) => q.isLoading);
+  const isError = projectQueries.some((q) => q.isError) || historyQueries.some((q) => q.isError);
 
   return {
     projects: projectQueries.map((q) => q.data).filter(Boolean) as {

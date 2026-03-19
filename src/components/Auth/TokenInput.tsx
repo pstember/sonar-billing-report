@@ -103,8 +103,14 @@ export default function TokenInput({ onSuccess }: TokenInputProps) {
               alt="SonarQube Cloud"
               className="h-12 mx-auto mb-4 hidden dark:block"
             />
-            <h1 className="text-3xl font-bold text-sonar-purple dark:text-white mb-2">
-              SonarQube Cloud Billing
+            <h1 className="text-3xl font-bold text-sonar-purple dark:text-white mb-2 flex flex-wrap items-center justify-center gap-2">
+              <span>SonarQube Cloud Billing</span>
+              <span
+                className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold font-body uppercase tracking-wide bg-sonar-teal/15 text-sonar-teal border border-sonar-teal/30 dark:bg-teal-900/30 dark:text-teal-200 dark:border-teal-600/40"
+                title="This dashboard is in beta; behaviour and layout may change."
+              >
+                Beta
+              </span>
             </h1>
             <p className="text-gray-600 dark:text-slate-300 font-body">
               Enter your enterprise credentials to get started

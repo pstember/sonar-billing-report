@@ -16,11 +16,13 @@ import {
 
 const getAuthConfig = vi.fn();
 const mockSearchProjects = vi.fn();
+const mockSearchProjectsAll = vi.fn();
 const mockGetProjectTags = vi.fn();
 const mockValidateToken = vi.fn();
 
 const createMockService = () => ({
   searchProjects: mockSearchProjects,
+  searchProjectsAll: mockSearchProjectsAll,
   getProjectTags: mockGetProjectTags,
   validateToken: mockValidateToken,
 });
@@ -47,6 +49,9 @@ describe('useSonarCloudData', () => {
   beforeEach(() => {
     queryClient = new QueryClient({ defaultOptions: { queries: { retry: 0 } } });
     vi.clearAllMocks();
+    mockSearchProjectsAll.mockImplementation(async (p: { organization?: string }) =>
+      mockSearchProjects({ organization: p.organization, p: 1, ps: 100 })
+    );
     getAuthConfig.mockResolvedValue({
       baseUrl: 'https://sonarcloud.io',
       token: 'test-token',
@@ -57,13 +62,13 @@ describe('useSonarCloudData', () => {
   describe('useProjects', () => {
     it('is disabled when organization is not provided', () => {
       const wrapper = createWrapper(queryClient);
-      const { result } = renderHook(() => useProjects({}), { wrapper });
-      expect(mockSearchProjects).not.toHaveBeenCalled();
+      renderHook(() => useProjects({}), { wrapper });
+      expect(mockSearchProjectsAll).not.toHaveBeenCalled();
     });
 
     it('fetches and returns projects when organization is provided', async () => {
       const projectsData = { components: [{ key: 'p1', name: 'Project 1' }], paging: { total: 1 } };
-      mockSearchProjects.mockResolvedValue(projectsData);
+      mockSearchProjectsAll.mockResolvedValue(projectsData);
 
       const wrapper = createWrapper(queryClient);
       const { result } = renderHook(
@@ -73,7 +78,7 @@ describe('useSonarCloudData', () => {
 
       await waitFor(() => expect(result.current.isSuccess).toBe(true));
       expect(result.current.data).toEqual(projectsData);
-      expect(mockSearchProjects).toHaveBeenCalledWith({ organization: 'my-org', ps: 50 });
+      expect(mockSearchProjectsAll).toHaveBeenCalledWith({ organization: 'my-org' });
     });
 
     it('returns error when not authenticated', async () => {
@@ -98,7 +103,7 @@ describe('useSonarCloudData', () => {
     });
 
     it('fetches projects per org and merges with attribution', async () => {
-      mockSearchProjects.mockResolvedValue({
+      mockSearchProjectsAll.mockResolvedValue({
         components: [{ key: 'proj-1', name: 'Proj 1' }],
         paging: { total: 1 },
       });
@@ -114,10 +119,10 @@ describe('useSonarCloudData', () => {
       );
 
       await waitFor(() => expect(result.current.isLoading).toBe(false));
-      expect(mockSearchProjects).toHaveBeenCalledWith(
+      expect(mockSearchProjectsAll).toHaveBeenCalledWith(
         expect.objectContaining({ organization: 'org1' })
       );
-      expect(mockSearchProjects).toHaveBeenCalledWith(
+      expect(mockSearchProjectsAll).toHaveBeenCalledWith(
         expect.objectContaining({ organization: 'org2' })
       );
       expect(result.current.projects.length).toBeGreaterThanOrEqual(0);
