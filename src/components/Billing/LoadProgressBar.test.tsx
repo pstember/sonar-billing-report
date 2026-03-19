@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import LoadProgressBar from './LoadProgressBar';
 
@@ -93,5 +93,50 @@ describe('LoadProgressBar', () => {
     });
     const { container } = render(<LoadProgressBar />);
     expect(container.firstChild).toBeNull();
+  });
+
+  it('shows spinner not check when item has success but is still fetching', async () => {
+    const user = userEvent.setup();
+    const itemsWithOneFetching = [
+      { category: 'billing' as const, label: 'Done', description: 'Complete', status: 'success' as const, fetchStatus: 'idle' as const, subCalls: [] },
+      { category: 'billing' as const, label: 'Refetching', description: 'In flight', status: 'success' as const, fetchStatus: 'fetching' as const, subCalls: [] },
+    ];
+    mockUseDashboardLoadProgress.mockReturnValue({
+      total: 2,
+      completed: 1,
+      percent: 50,
+      fetching: 1,
+      items: itemsWithOneFetching,
+      isComplete: false,
+      isLoading: true,
+    });
+    render(<LoadProgressBar />);
+    await user.click(screen.getByRole('button', { name: /Show details/ }));
+    const checks = screen.getAllByText('✓');
+    expect(checks).toHaveLength(1);
+  });
+
+  it('collapses category when all items in section are fully complete', async () => {
+    const user = userEvent.setup();
+    const itemsWithOneCategoryComplete = [
+      { category: 'enterprise' as const, label: 'Org A', description: 'Done', status: 'success' as const, fetchStatus: 'idle' as const, subCalls: [] },
+      { category: 'enterprise' as const, label: 'Org B', description: 'Done', status: 'success' as const, fetchStatus: 'idle' as const, subCalls: [] },
+      { category: 'projects' as const, label: 'Proj', description: 'Pending', status: 'pending' as const, fetchStatus: 'fetching' as const, subCalls: [] },
+    ];
+    mockUseDashboardLoadProgress.mockReturnValue({
+      total: 3,
+      completed: 2,
+      percent: 67,
+      fetching: 1,
+      items: itemsWithOneCategoryComplete,
+      isComplete: false,
+      isLoading: true,
+    });
+    render(<LoadProgressBar />);
+    await user.click(screen.getByRole('button', { name: /Show details/ }));
+    await waitFor(() => {
+      const enterpriseButton = screen.getByRole('button', { name: /Enterprise/ });
+      expect(enterpriseButton).toHaveAttribute('aria-expanded', 'false');
+    });
   });
 });

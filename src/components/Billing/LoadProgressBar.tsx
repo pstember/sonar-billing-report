@@ -15,8 +15,14 @@ const CATEGORY_LABELS: Record<LoadProgressCategory, string> = {
 };
 
 function ItemStatus({ item }: { readonly item: LoadProgressItem }) {
-  if (item.status === 'success') return <span className="text-emerald-600 dark:text-emerald-400" aria-hidden>✓</span>;
-  if (item.status === 'error') return <span className="text-red-500 dark:text-red-400" aria-hidden>✗</span>;
+  const fullyComplete = (item.status === 'success' || item.status === 'error') && item.fetchStatus !== 'fetching';
+  if (fullyComplete) {
+    return item.status === 'success' ? (
+      <span className="text-emerald-600 dark:text-emerald-400" aria-hidden>✓</span>
+    ) : (
+      <span className="text-red-500 dark:text-red-400" aria-hidden>✗</span>
+    );
+  }
   if (item.fetchStatus === 'fetching') return <span className="inline-block load-progress-spinner" aria-hidden />;
   /* Pending: same 3/4 arc spinner, grey so you can tell waiting vs in-progress */
   return <span className="inline-block load-progress-spinner load-progress-spinner--pending" aria-hidden />;
@@ -74,7 +80,7 @@ function Group({
   readonly items: LoadProgressItem[];
 }) {
   const [expanded, setExpanded] = useState(true);
-  const completedInCategory = items.filter((i) => i.status === 'success' || i.status === 'error').length;
+  const completedInCategory = items.filter(isItemFullyComplete).length;
   const totalInCategory = items.length;
   const allCompleted = items.length > 0 && items.every(isItemFullyComplete);
 
