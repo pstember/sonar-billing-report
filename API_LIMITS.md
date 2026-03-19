@@ -1,6 +1,6 @@
-# SonarCloud API Limits & Constraints
+# SonarQube Cloud API Limits & Constraints
 
-**IMPORTANT**: This document describes critical limits enforced by the SonarCloud API that MUST be respected in the application.
+**IMPORTANT**: This document describes critical limits enforced by the SonarQube Cloud API that MUST be respected in the application.
 
 ---
 
@@ -8,7 +8,7 @@
 
 ### Maximum Page Size: 100
 
-The SonarCloud API enforces a **strict maximum of 100 items per page** for all paginated endpoints.
+The SonarQube Cloud API enforces a **strict maximum of 100 items per page** for all paginated endpoints.
 
 #### Error Message
 
@@ -420,7 +420,7 @@ function ProjectTagsSelector() {
 ### Check API Calls
 
 1. Open browser DevTools (Network tab)
-2. Look for SonarCloud API calls
+2. Look for SonarQube Cloud API calls
 3. Check the `ps` parameter in the request URL
 4. Verify it's ≤ 100
 
@@ -437,7 +437,7 @@ function ProjectTagsSelector() {
 ## 📚 References
 
 - **Constants File**: [src/constants/api.ts](./src/constants/api.ts)
-- **SonarCloud API Docs**: https://docs.sonarcloud.io/
+- **SonarQube Cloud API Docs**: https://docs.sonarcloud.io/
 
 ---
 

@@ -11,7 +11,7 @@ This document defines how to run **multiple Cursor agents in parallel** to imple
 - [ ] **Phase 3: Unit tests**
   - [ ] Agent A (constants & cost-center)
   - [x] Agent B (costCalculations, dataTransformers, exportUtils)
-  - [x] Agent C (SonarCloud service)
+  - [x] Agent C (SonarQube Cloud service)
   - [ ] Agent D (useDashboardLoadProgress; optional: db)
 
 ---
@@ -137,12 +137,12 @@ Import from the real modules under test. Use describe/it/expect and vi from vite
 
 ---
 
-### Agent C – SonarCloud service
+### Agent C – SonarQube Cloud service
 
 Paste this into **Chat 3**:
 
 ```
-You are implementing unit tests for the SonarCloud service (Agent C of the parallel test plan).
+You are implementing unit tests for the SonarQube Cloud service (Agent C of the parallel test plan).
 
 Prerequisites: Vitest and fixtures folder with all JSON files exist. Do not change production code in src/services/sonarcloud.ts.
 
@@ -160,7 +160,7 @@ Create src/services/sonarcloud.test.ts:
 
 4. Error handling: when response.ok is false and body has errors[0].msg, throw Error with that message; when response.json() throws or body is not JSON, rethrow or throw.
 
-Use describe/it/expect and vi from vitest. Instantiate SonarCloudService with a test baseUrl and token.
+Use describe/it/expect and vi from vitest. Instantiate SonarQube CloudService with a test baseUrl and token.
 ```
 
 ---

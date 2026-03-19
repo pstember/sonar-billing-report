@@ -2,7 +2,7 @@
 
 ## Token Management
 
-**Using the app:** The app asks for your SonarCloud token on the welcome screen and stores it in the browser (IndexedDB). No `.env` file is required to run the app.
+**Using the app:** The app asks for your SonarQube Cloud token on the welcome screen and stores it in the browser (IndexedDB). No `.env` file is required to run the app.
 
 **Running test scripts:** If you run `node test-api.js` or `node test-e2e.js` from the command line, you can put the token in a `.env` file (or pass it as an argument) so you don't have to type it each time. The app itself never reads `.env`.
 
@@ -81,7 +81,7 @@
 
 ## Token Permissions
 
-### SonarCloud Token Requirements
+### SonarQube Cloud Token Requirements
 
 Your token needs the following permissions:
 - Read access to organizations
@@ -91,7 +91,7 @@ Your token needs the following permissions:
 
 ### Creating a Secure Token
 
-1. Go to SonarCloud → My Account → Security
+1. Go to SonarQube Cloud → My Account → Security
 2. Click "Generate Token"
 3. Name it descriptively (e.g., "Billing Report - Production")
 4. Set expiration date (recommended: 90 days)
@@ -105,7 +105,7 @@ Recommended practice:
 - Rotate tokens every 90 days
 - Use different tokens for dev/staging/prod
 - Revoke tokens when no longer needed
-- Monitor token usage in SonarCloud
+- Monitor token usage in SonarQube Cloud
 
 ## CI/CD Best Practices
 
@@ -141,7 +141,7 @@ test:
 ### If Token is Compromised
 
 1. **Immediately revoke the token**
-   - SonarCloud → My Account → Security → Revoke
+   - SonarQube Cloud → My Account → Security → Revoke
 
 2. **Generate a new token**
    - Follow token creation process above
@@ -185,7 +185,7 @@ Before sharing project:
 
 ## Additional Resources
 
-- [SonarCloud Security Best Practices](https://docs.sonarcloud.io/advanced-setup/security/)
+- [SonarQube Cloud Security Best Practices](https://docs.sonarcloud.io/advanced-setup/security/)
 - [Git Secrets Prevention](https://git-secret.io/)
 - [Environment Variable Management](https://12factor.net/config)
 

@@ -26,7 +26,7 @@ The application will:
 
 ![Welcome / login screen](images/login_page.png)
 
-Enter your SonarCloud token on the welcome screen (get one from SonarCloud → My Account → Security → Generate Token). The app stores it in the browser and does not need a `.env` file.
+Enter your SonarQube Cloud token on the welcome screen (get one from SonarQube Cloud → My Account → Security → Generate Token). The app stores it in the browser and does not need a `.env` file.
 
 **Optional:** If you run the test scripts from the command line (`node test-api.js` or `node test-e2e.js`), create a `.env` from `.env.example` and set `SONAR_TOKEN` so you don't have to pass the token as an argument. Never commit `.env`; it's in `.gitignore`.
 
@@ -38,14 +38,14 @@ node test-api.js
 ```
 
 This will:
-- Test all 7 SonarCloud API endpoints
+- Test all 7 SonarQube Cloud API endpoints
 - Show detailed results with color-coded output
 - Verify your token is working correctly
 
 ### Expected Output
 ```
 ╔════════════════════════════════════════════════════════╗
-║   SonarCloud API Endpoint Tests                       ║
+║   SonarQube Cloud API Endpoint Tests                       ║
 ╚════════════════════════════════════════════════════════╝
 
 ✓ Passed:  7/7
@@ -75,7 +75,7 @@ Success Rate: 100.0%
 - View cost breakdowns and trends
 
 ### API Integration
-The application connects to SonarCloud through a built-in proxy server:
+The application connects to SonarQube Cloud through a built-in proxy server:
 - **Frontend**: `http://localhost:3000`
 - **Proxy**: `/api/*` → https://sonarcloud.io/api/*; `/billing`, `/organizations`, `/enterprises` → https://api.sonarcloud.io. See `server.js` for full mapping.
 - **Token**: Passed via Bearer authentication

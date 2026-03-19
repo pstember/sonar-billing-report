@@ -648,13 +648,20 @@ export default function BillingDashboard() {
       <header className="bg-white dark:bg-slate-800 shadow-md border-b-2 border-sonar-blue/10 dark:border-slate-700">
         <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center mb-4">
-            <div>
-              <h1 className="text-3xl font-bold text-sonar-purple dark:text-white">
-                SonarCloud Billing Dashboard
-              </h1>
-              <p className="text-sm text-gray-600 dark:text-slate-300 mt-1">
-                Allocate code ownership and calculate costs across teams
-              </p>
+            <div className="flex items-center gap-4">
+              <img
+                src="/sonarqube-cloud-mark.svg"
+                alt="SonarQube Cloud"
+                className="h-10 w-10"
+              />
+              <div>
+                <h1 className="text-3xl font-bold text-sonar-purple dark:text-white">
+                  SonarQube Cloud Billing Dashboard
+                </h1>
+                <p className="text-sm text-gray-600 dark:text-slate-300 mt-1">
+                  Allocate code ownership and calculate costs across teams
+                </p>
+              </div>
             </div>
             <div className="flex items-center gap-3">
               <ThemeSelector />
@@ -959,7 +966,7 @@ export default function BillingDashboard() {
                     <div className="border-l-2 border-sonar-blue pl-3">
                       <strong className="text-sonar-purple dark:text-white">Contracted LOC:</strong>
                       <p className="text-gray-600 dark:text-slate-300 mt-1">
-                        The total capacity in your SonarCloud license (e.g., 5 million lines). This is what you're paying for.
+                        The total capacity in your SonarQube Cloud license (e.g., 5 million lines). This is what you're paying for.
                       </p>
                     </div>
                     <div className="border-l-2 border-amber-500 pl-3">

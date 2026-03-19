@@ -1,18 +1,18 @@
-# SonarCloud Billing Report
+# SonarQube Cloud Billing Report
 
-A self-contained web application for visualizing SonarCloud metrics focused on billing and cost allocation.
+A self-contained web application for visualizing SonarQube Cloud metrics focused on billing and cost allocation.
 
 ![Billing dashboard overview](images/overview_page.png)
 
 ## ✨ Features
 
-- **No Configuration Required**: Enter your SonarCloud token in the UI - no `.env` files needed
+- **No Configuration Required**: Enter your SonarQube Cloud token in the UI - no `.env` files needed
 - **Comprehensive Billing Dashboard**: View costs, trends, and breakdowns by organization, project, and tags
 - **Cost Center Management**: Create teams/departments, assign projects, track code ownership, and allocate costs
 - **Multiple Perspectives**: Single organisation, multiple organisation comparison, or enterprise-wide overview
 - **Smart Selection**: Build comparison sets with visual selection state management
 - **Multiple Deployment Options**: Run as Node.js app or standalone executable; deploy to Netlify, Vercel, or other static hosts
-- **Built-in API Proxy**: Handles SonarCloud API authentication and CORS
+- **Built-in API Proxy**: Handles SonarQube Cloud API authentication and CORS
 - **Data Export**: Export reports to Excel, CSV, or PDF
 - **Real-time Metrics**: Track lines of code, quality metrics, and historical trends
 
@@ -30,7 +30,7 @@ npm install
 npm start
 ```
 
-Visit `http://localhost:3000` and enter your SonarCloud token to get started.
+Visit `http://localhost:3000` and enter your SonarQube Cloud token to get started.
 
 ## 📚 Documentation
 
@@ -40,7 +40,7 @@ Visit `http://localhost:3000` and enter your SonarCloud token to get started.
 | [BUILD.md](./BUILD.md) | **Build, package, and create executables** |
 | [DEPLOYMENT.md](./DEPLOYMENT.md) | Deploy options (cloud, local proxy) |
 | [SECURITY.md](./SECURITY.md) | Security best practices |
-| [API_LIMITS.md](./API_LIMITS.md) | SonarCloud API constraints |
+| [API_LIMITS.md](./API_LIMITS.md) | SonarQube Cloud API constraints |
 | [CLAUDE.md](./CLAUDE.md) | Development guidelines |
 | [CHANGELOG.md](./CHANGELOG.md) | Recent changes |
 

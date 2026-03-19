@@ -1,6 +1,6 @@
 /**
- * SonarCloud Billing Report - Standalone Server
- * Simple Express server that serves the app and proxies SonarCloud API requests
+ * SonarQube Cloud Billing Report - Standalone Server
+ * Simple Express server that serves the app and proxies SonarQube Cloud API requests
  */
 
 import express from 'express';
@@ -113,7 +113,7 @@ app.use('/organizations', async (req, res) => {
   }
 });
 
-// CORS proxy for SonarCloud API - MUST be before static files
+// CORS proxy for SonarQube Cloud API - MUST be before static files
 app.use('/api', createProxyMiddleware({
   target: SONARCLOUD_API,
   changeOrigin: true,
@@ -149,10 +149,10 @@ app.use((req, res, next) => {
 app.listen(PORT, () => {
   const url = `http://localhost:${PORT}`;
   console.log('\n╔════════════════════════════════════════════════════════╗');
-  console.log('║   SonarCloud Billing Report Server                    ║');
+  console.log('║   SonarQube Cloud Billing Report Server               ║');
   console.log('╚════════════════════════════════════════════════════════╝\n');
   console.log(`  ✅ Server running at: ${url}`);
-  console.log(`  📊 Ready to analyze SonarCloud billing data\n`);
+  console.log(`  📊 Ready to analyze SonarQube Cloud billing data\n`);
   console.log('  Press Ctrl+C to stop the server\n');
 
   // Auto-open browser

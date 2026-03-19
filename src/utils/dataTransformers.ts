@@ -1,6 +1,6 @@
 /**
  * Data transformation utilities
- * Parse and transform SonarCloud API responses
+ * Parse and transform SonarQube Cloud API responses
  */
 
 import type { LanguageDistribution } from '../types/sonarcloud';

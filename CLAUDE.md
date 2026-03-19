@@ -1,4 +1,4 @@
-# Development Guidelines for SonarCloud Billing Report
+# Development Guidelines for SonarQube Cloud Billing Report
 
 This file contains guidelines and important information for developing and maintaining this project.
 
@@ -100,9 +100,9 @@ Use the pre-built component classes for consistency:
 
 ## 🔌 API Constraints
 
-### SonarCloud API Limits
+### SonarQube Cloud API Limits
 
-**CRITICAL**: The SonarCloud API has strict limits that MUST be respected.
+**CRITICAL**: The SonarQube Cloud API has strict limits that MUST be respected.
 
 #### Maximum Page Size: 100
 
@@ -261,7 +261,7 @@ node test-e2e.js
 
 ### Test Scripts
 
-- `test-api.js` - Tests all 7 SonarCloud API endpoints
+- `test-api.js` - Tests all 7 SonarQube Cloud API endpoints
 - `test-e2e.js` - End-to-end server and integration tests
 - `test-service.js` - Service class unit tests
 
@@ -321,7 +321,7 @@ SONAR_TOKEN=your_token_here
 | `QUICK_START.md` | Getting started guide |
 | `DEPLOYMENT.md` | Deploy options and local proxy |
 | `SECURITY.md` | Security best practices |
-| `API_LIMITS.md` | SonarCloud API limits |
+| `API_LIMITS.md` | SonarQube Cloud API limits |
 | `DASHBOARD_LOADING.md` | Which API calls run on load, when they are remade vs cached |
 | `BRAND_IMPLEMENTATION.md` | Brand implementation details |
 | `BRAND_COLORS_REFERENCE.md` | Color palette reference |

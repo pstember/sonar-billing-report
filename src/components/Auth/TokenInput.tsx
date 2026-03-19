@@ -1,6 +1,6 @@
 /**
  * Token Input Component
- * Handles SonarCloud token authentication
+ * Handles SonarQube Cloud token authentication
  */
 
 import { useState } from 'react';
@@ -24,7 +24,7 @@ export default function TokenInput({ onSuccess }: TokenInputProps) {
     setError('');
 
     if (!token.trim()) {
-      setError('Please enter your SonarCloud token');
+      setError('Please enter your SonarQube Cloud token');
       return;
     }
 
@@ -93,8 +93,18 @@ export default function TokenInput({ onSuccess }: TokenInputProps) {
       <div className="w-full max-w-md">
         <div className="bg-white dark:bg-gray-800 shadow-2xl rounded-2xl p-8 border-t-4 border-sonar-blue">
           <div className="text-center mb-8">
+            <img
+              src="/sonarqube-cloud-logo.svg"
+              alt="SonarQube Cloud"
+              className="h-12 mx-auto mb-4 dark:hidden"
+            />
+            <img
+              src="/sonarqube-cloud-logo-dark.svg"
+              alt="SonarQube Cloud"
+              className="h-12 mx-auto mb-4 hidden dark:block"
+            />
             <h1 className="text-3xl font-bold text-sonar-purple dark:text-white mb-2">
-              SonarCloud Billing
+              SonarQube Cloud Billing
             </h1>
             <p className="text-gray-600 dark:text-slate-300 font-body">
               Enter your enterprise credentials to get started
@@ -104,7 +114,7 @@ export default function TokenInput({ onSuccess }: TokenInputProps) {
           <div className="mb-6 p-4 bg-sonar-blue/5 border-l-4 border-sonar-blue rounded">
             <h3 className="font-semibold text-sm mb-2 text-gray-900 dark:text-white">What you'll need</h3>
             <ul className="text-xs space-y-1 text-gray-600 dark:text-slate-300">
-              <li>✓ A SonarCloud token with read access</li>
+              <li>✓ A SonarQube Cloud token with read access</li>
               <li>✓ Your enterprise key (found in Admin settings)</li>
               <li>✓ 2 minutes to set up your first cost centers</li>
             </ul>
@@ -116,7 +126,7 @@ export default function TokenInput({ onSuccess }: TokenInputProps) {
                 htmlFor="token"
                 className="block text-sm font-medium text-sonar-purple dark:text-white mb-2 font-body"
               >
-                SonarCloud Access Token *
+                SonarQube Cloud Access Token *
               </label>
               <input
                 id="token"
@@ -124,7 +134,7 @@ export default function TokenInput({ onSuccess }: TokenInputProps) {
                 value={token}
                 onChange={(e) => setToken(e.target.value)}
                 className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-sonar-blue focus:border-sonar-blue dark:bg-gray-700 dark:text-white font-body transition-all"
-                placeholder="Enter your SonarCloud token"
+                placeholder="Enter your SonarQube Cloud token"
                 disabled={isValidating}
               />
               <p className="mt-1 text-sm text-gray-600 dark:text-slate-300 font-body">
@@ -160,7 +170,7 @@ export default function TokenInput({ onSuccess }: TokenInputProps) {
               <p className="mt-1 text-sm text-gray-600 dark:text-slate-300 font-body">
                 Your enterprise identifier (e.g., "acme-corp")
                 <br />
-                Find it in SonarCloud under Administration → Enterprise
+                Find it in SonarQube Cloud under Administration → Enterprise
               </p>
             </div>
 
@@ -183,7 +193,7 @@ export default function TokenInput({ onSuccess }: TokenInputProps) {
             <p className="text-xs text-gray-600 dark:text-slate-300 text-center font-body">
               Your token is stored securely in your browser's local database.
               <br />
-              It is never sent to any server except SonarCloud.
+              It is never sent to any server except SonarQube Cloud.
             </p>
           </div>
         </div>

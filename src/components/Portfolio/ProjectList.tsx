@@ -1,6 +1,6 @@
 /**
  * Project List Component
- * Display and select SonarCloud projects with real data.
+ * Display and select SonarQube Cloud projects with real data.
  * Optional: controlled selection (selectedProjectKeys) and assignment columns (cost center + allocation %).
  */
 

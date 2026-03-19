@@ -1,4 +1,4 @@
-# SonarCloud Billing Report - Deployment Guide
+# SonarQube Cloud Billing Report - Deployment Guide
 
 ## Quick Start
 
@@ -19,7 +19,7 @@ The build output will be in the `dist/` directory.
 
 ## Running Locally with CORS Proxy
 
-The browser cannot call the SonarCloud API directly due to CORS. Use the built-in Node.js server, which serves the app and proxies `/api/*` to SonarCloud:
+The browser cannot call the SonarQube Cloud API directly due to CORS. Use the built-in Node.js server, which serves the app and proxies `/api/*` to SonarQube Cloud:
 
 ```bash
 npm start
@@ -124,7 +124,7 @@ aws s3 sync dist/ s3://your-bucket-name --delete
 
 ### CORS Proxy (if needed)
 
-If SonarCloud blocks CORS requests, deploy a simple proxy:
+If SonarQube Cloud blocks CORS requests, deploy a simple proxy:
 
 **Cloudflare Worker:**
 ```javascript
@@ -156,7 +156,7 @@ const DEFAULT_BASE_URL = 'https://your-worker.workers.dev';
 1. **Token Storage**
    - Tokens are stored in IndexedDB (client-side only)
    - Never expose tokens in URLs or logs
-   - Tokens never sent to any server except SonarCloud
+   - Tokens never sent to any server except SonarQube Cloud
 
 2. **HTTPS**
    - Always deploy with HTTPS enabled
@@ -218,7 +218,7 @@ Add Google Analytics or Plausible (optional)
 - Update baseUrl in sonarcloud service
 
 ### Slow Loading
-- Check SonarCloud API rate limits
+- Check SonarQube Cloud API rate limits
 - Reduce number of projects fetched
 - Increase cache TTL
 

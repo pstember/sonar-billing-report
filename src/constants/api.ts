@@ -1,14 +1,14 @@
 /**
- * SonarCloud API Constants
+ * SonarQube Cloud API Constants
  *
- * These constants define the limits and constraints of the SonarCloud API.
+ * These constants define the limits and constraints of the SonarQube Cloud API.
  * Reference: https://docs.sonarcloud.io/
  */
 
 /**
- * Maximum page size allowed by SonarCloud API for paginated endpoints
+ * Maximum page size allowed by SonarQube Cloud API for paginated endpoints
  *
- * IMPORTANT: The SonarCloud API enforces a maximum of 100 items per page.
+ * IMPORTANT: The SonarQube Cloud API enforces a maximum of 100 items per page.
  * Attempting to use a larger value will result in an error:
  * {"errors":[{"msg":"'ps' value (X) must be less than 100"}]}
  *
@@ -68,7 +68,7 @@ export const API_PATHS = {
 } as const;
 
 /**
- * Component qualifiers used in SonarCloud
+ * Component qualifiers used in SonarQube Cloud
  */
 export const QUALIFIERS = {
   PROJECT: 'TRK',

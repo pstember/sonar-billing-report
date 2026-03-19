@@ -43,7 +43,7 @@ describe('TokenInput', () => {
 
   it('renders token and enterprise key inputs and submit button', () => {
     render(<TokenInput onSuccess={onSuccess} />);
-    expect(screen.getByLabelText(/SonarCloud Access Token/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/SonarQube Cloud Access Token/)).toBeInTheDocument();
     expect(screen.getByLabelText(/Enterprise Key/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Continue to Dashboard/ })).toBeInTheDocument();
   });
@@ -53,13 +53,13 @@ describe('TokenInput', () => {
     render(<TokenInput onSuccess={onSuccess} />);
     await user.type(screen.getByLabelText(/Enterprise Key/), 'my-enterprise');
     await user.click(screen.getByRole('button', { name: /Continue to Dashboard/ }));
-    await screen.findByText(/Please enter your SonarCloud token/);
+    await screen.findByText(/Please enter your SonarQube Cloud token/);
   });
 
   it('shows validation error when enterprise key is empty on submit', async () => {
     const user = userEvent.setup();
     render(<TokenInput onSuccess={onSuccess} />);
-    await user.type(screen.getByLabelText(/SonarCloud Access Token/), 'my-token');
+    await user.type(screen.getByLabelText(/SonarQube Cloud Access Token/), 'my-token');
     await user.click(screen.getByRole('button', { name: /Continue to Dashboard/ }));
     await screen.findByText(/Please enter your Enterprise Key/);
   });
@@ -67,7 +67,7 @@ describe('TokenInput', () => {
   it('calls onSuccess after successful validation and save', async () => {
     const user = userEvent.setup();
     render(<TokenInput onSuccess={onSuccess} />);
-    await user.type(screen.getByLabelText(/SonarCloud Access Token/), 'my-token');
+    await user.type(screen.getByLabelText(/SonarQube Cloud Access Token/), 'my-token');
     await user.type(screen.getByLabelText(/Enterprise Key/), 'my-enterprise');
     await user.click(screen.getByRole('button', { name: /Continue to Dashboard/ }));
     await waitFor(() => expect(onSuccess).toHaveBeenCalled());

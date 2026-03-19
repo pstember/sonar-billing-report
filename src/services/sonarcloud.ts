@@ -1,6 +1,6 @@
 /**
- * SonarCloud API Service
- * Handles all API communication with SonarCloud
+ * SonarQube Cloud API Service
+ * Handles all API communication with SonarQube Cloud
  */
 
 import type {
@@ -45,10 +45,10 @@ class SonarCloudService {
   }
 
   /**
-   * Generate Basic Auth header (SonarCloud uses Basic auth with token:empty_password)
+   * Generate Basic Auth header (SonarQube Cloud uses Basic auth with token:empty_password)
    */
   private getAuthHeader(): string {
-    // SonarCloud expects: Basic base64(token:)
+    // SonarQube Cloud expects: Basic base64(token:)
     const credentials = btoa(`${this.config.token}:`);
     return `Basic ${credentials}`;
   }

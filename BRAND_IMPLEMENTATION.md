@@ -1,6 +1,6 @@
 # Sonar Brand Implementation
 
-This document describes how the Sonar brand guidelines have been implemented in the SonarCloud Billing Report application.
+This document describes how the Sonar brand guidelines have been implemented in the SonarQube Cloud Billing Report application.
 
 ## Brand Guidelines Source
 
@@ -296,7 +296,7 @@ theme: {
 ```jsx
 <div className="bg-gradient-to-br from-sonar-background to-sonar-blue-light">
   <div className="card-sonar">
-    <h1 className="text-sonar-purple">SonarCloud Billing</h1>
+    <h1 className="text-sonar-purple">SonarQube Cloud Billing</h1>
     <input className="input-sonar" />
     <button className="btn-sonar-primary">Connect</button>
   </div>

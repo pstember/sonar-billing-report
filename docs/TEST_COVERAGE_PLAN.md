@@ -4,7 +4,7 @@
 
 - [x] **Phase 1:** chartColors.test.ts, theme.test.ts, brand.test.ts, queryClient.test.ts
 - [x] **Phase 2:** db.test.ts (cache expiry, error paths), sonarcloud.test.ts (edge paths)
-- [x] **Phase 3:** useBilling.test.tsx, useBillingData.test.tsx, useSonarCloudData.test.tsx, useProjectsRealData.test.tsx
+- [x] **Phase 3:** useBilling.test.tsx, useBillingData.test.tsx, useSonarQube CloudData.test.tsx, useProjectsRealData.test.tsx
 - [x] **Phase 4:** App.test.tsx, CacheIndicator.test.tsx, ThemeSelector.test.tsx, TokenInput.test.tsx, LoadProgressBar.test.tsx, OrganizationSelector.test.tsx
 - [x] **Phase 5:** BillingConfig.test.tsx, CostCalculator.test.tsx, BillingPivotTable.test.tsx, TeamCostPieChart.test.tsx, LOCTrendChart.test.tsx
 - [x] **Phase 6:** CostCenters.test.tsx, BillingDashboard.test.tsx, ProjectList.test.tsx
@@ -39,7 +39,7 @@
 - Config: `queryClient.ts`
 - Constants/styles: `chartColors.ts`, `brand.ts`
 - Utils: `theme.ts`
-- Hooks: `useBilling`, `useBillingData`, `useSonarCloudData`, `useProjectsRealData`
+- Hooks: `useBilling`, `useBillingData`, `useSonarQube CloudData`, `useProjectsRealData`
 
 ---
 
@@ -86,8 +86,8 @@ Roughly **3,700** additional lines need to be covered. The plan is phased by imp
 | File | Lines | Approach |
 |------|-------|----------|
 | `useBilling.ts` | 154 | RTL + mock React Query / API; test loading, success, error. |
-| `useBillingData.ts` | 340 | Same; mock `useBilling`, `useSonarCloudData`, DB; test aggregation and edge cases. |
-| `useSonarCloudData.ts` | 127 | Mock `sonarcloud` service and React Query; test key flows. |
+| `useBillingData.ts` | 340 | Same; mock `useBilling`, `useSonarQube CloudData`, DB; test aggregation and edge cases. |
+| `useSonarQube CloudData.ts` | 127 | Mock `sonarcloud` service and React Query; test key flows. |
 | `useProjectsRealData.ts` | 267 | Mock services and pagination; test page accumulation and filters. |
 
 **Estimated new covered lines:** ~888  

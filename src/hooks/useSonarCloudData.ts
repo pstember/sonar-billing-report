@@ -1,5 +1,5 @@
 /**
- * React Query hooks for SonarCloud API data fetching
+ * React Query hooks for SonarQube Cloud API data fetching
  */
 
 import { useQuery, useQueries, useMutation } from '@tanstack/react-query';
@@ -14,7 +14,7 @@ export interface ProjectWithOrganization extends Project {
 }
 
 /**
- * Hook to get SonarCloud service instance
+ * Hook to get SonarQube Cloud service instance
  */
 async function getSonarCloudService(): Promise<SonarCloudService> {
   const auth = await getAuthConfig();

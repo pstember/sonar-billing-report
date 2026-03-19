@@ -26,7 +26,7 @@ Modified `src/services/sonarcloud.ts` to add required `member=true` parameter to
 
 ```
 ╔════════════════════════════════════════════════════════╗
-║   SonarCloud API Endpoint Tests                       ║
+║   SonarQube Cloud API Endpoint Tests                       ║
 ╚════════════════════════════════════════════════════════╝
 
 ✓ Passed:  7/7
@@ -145,14 +145,14 @@ async searchOrganizations(params: {
 - ✅ Defaults to `member=true` when no parameters provided
 - ✅ Supports custom organization filtering
 - ✅ Backward compatible with existing code
-- ✅ Follows SonarCloud API requirements
+- ✅ Follows SonarQube Cloud API requirements
 
 ---
 
 ## Testing Scripts Created
 
 ### 1. `test-api.js` - Direct API Testing
-Tests all 7 SonarCloud API endpoints directly against `https://sonarcloud.io`
+Tests all 7 SonarQube Cloud API endpoints directly against `https://sonarcloud.io`
 
 **Usage:**
 ```bash
@@ -218,7 +218,7 @@ node test-e2e.js
 1. **Token Validation** - Works correctly with the provided token
 2. **API Access** - All 7 endpoints are accessible and working
 3. **Server** - Express server starts and serves the application
-4. **Proxy** - CORS proxy correctly forwards requests to SonarCloud
+4. **Proxy** - CORS proxy correctly forwards requests to SonarQube Cloud
 5. **Build** - Production build is optimized and ready
 6. **Testing** - Comprehensive test suite available
 
@@ -253,4 +253,4 @@ node test-e2e.js
 ✅ **Documentation**: Complete
 ✅ **Production**: Ready
 
-The SonarCloud Billing Report application is now fully functional and validated with your token.
+The SonarQube Cloud Billing Report application is now fully functional and validated with your token.

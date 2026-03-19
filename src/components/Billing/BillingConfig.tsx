@@ -1,6 +1,6 @@
 /**
  * Billing Configuration Component
- * Allows users to configure their SonarCloud plan details manually
+ * Allows users to configure their SonarQube Cloud plan details manually
  * (Billing API requires browser session auth, not accessible with API tokens)
  */
 

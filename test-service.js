@@ -1,5 +1,5 @@
 /**
- * Test the SonarCloudService class directly
+ * Test the SonarCloudService class (SonarQube Cloud API) directly
  * This validates the TypeScript service is working correctly
  *
  * Usage:

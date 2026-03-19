@@ -98,7 +98,7 @@ export default function OrganizationSelector(props: OrganizationSelectorProps) {
     if (message.includes('401') || message.includes('403') || message.includes('Unauthorized')) {
       suggestion = 'Your token may have expired. Try logging out and reconnecting.';
     } else if (message.includes('Enterprise')) {
-      suggestion = 'Verify your Enterprise Key in SonarCloud settings.';
+      suggestion = 'Verify your Enterprise Key in SonarQube Cloud settings.';
     }
 
     return (

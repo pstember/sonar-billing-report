@@ -90,7 +90,7 @@ export async function exportToPDF(data: Record<string, unknown>[], filename: str
   doc.text(`Generated on ${generatedDate}`, 14, 18);
 
   const pageHeight = doc.internal.pageSize.getHeight();
-  const footerText = `SonarCloud Billing Report · Generated on ${generatedDate}`;
+  const footerText = `SonarQube Cloud Billing Report · Generated on ${generatedDate}`;
 
   autoTable(doc, {
     head: [headers],

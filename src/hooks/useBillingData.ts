@@ -1,5 +1,5 @@
 /**
- * React Query hooks for SonarCloud Billing API
+ * React Query hooks for SonarQube Cloud Billing API
  *
  * NOTE: Only PRIVATE projects count toward billing!
  */

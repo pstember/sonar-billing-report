@@ -11,7 +11,7 @@ import { useMemo } from 'react';
 import SonarCloudService from '../services/sonarcloud';
 import { getAuthConfig } from '../services/db';
 
-/** Number of months of history to request (SonarCloud may return less). */
+/** Number of months of history to request (SonarQube Cloud may return less). */
 const TREND_HISTORY_MONTHS = 12;
 
 export interface ProjectData {
@@ -81,7 +81,7 @@ export function useProjectsRealData(projectKeys: string[]) {
     })),
   });
 
-  // Fetch historical data for trend chart (up to 12 months; SonarCloud may return less)
+  // Fetch historical data for trend chart (up to 12 months; SonarQube Cloud may return less)
   const historyQueries = useQueries({
     queries: projectKeys.map((key) => ({
       queryKey: ['projectHistory', key],

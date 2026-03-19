@@ -1,6 +1,6 @@
 /**
- * SonarCloud API Type Definitions
- * Based on SonarCloud REST API v1
+ * SonarQube Cloud API Type Definitions
+ * Based on SonarQube Cloud REST API v1
  */
 
 export interface SonarCloudConfig {
@@ -202,7 +202,7 @@ export interface EnterprisesResponse {
 export interface EnterpriseOrganization {
   enterpriseOrganizationId: string;
   enterpriseId: string;
-  organizationId: string; // Internal SonarCloud ID
+  organizationId: string; // Internal SonarQube Cloud ID
   organizationUuidV4: string; // UUID for billing API
   // API might return additional fields
   [key: string]: unknown;

@@ -1,6 +1,6 @@
 /**
  * API Endpoint Test Script
- * Tests SonarCloud API connectivity with provided token.
+ * Tests SonarQube Cloud API connectivity with provided token.
  * Note: The app uses components/search_projects for the project list; this script
  * tests projects/search for API connectivity. For full endpoints used by the app
  * see src/services/sonarcloud.ts.
@@ -90,7 +90,7 @@ async function apiRequest(endpoint, description) {
  */
 async function runTests() {
   console.log('\n╔════════════════════════════════════════════════════════╗');
-  console.log('║   SonarCloud API Endpoint Tests                       ║');
+  console.log('║   SonarQube Cloud API Endpoint Tests                  ║');
   console.log('╚════════════════════════════════════════════════════════╝');
   console.log(`${colors.cyan}Token:${colors.reset} ${TOKEN.substring(0, 10)}...${TOKEN.substring(TOKEN.length - 4)}`);
 

@@ -1,6 +1,6 @@
 # Build & Package Guide
 
-Complete guide for building, running, and packaging SonarCloud Billing Report.
+Complete guide for building, running, and packaging SonarQube Cloud Billing Report.
 
 ## 📋 Table of Contents
 
@@ -50,7 +50,7 @@ The application will:
 npm run dev
 ```
 
-This runs only the frontend with Vite's development server. The frontend will proxy API calls to SonarCloud directly.
+This runs only the frontend with Vite's development server. The frontend will proxy API calls to SonarQube Cloud directly.
 
 **URL**: `http://localhost:5173`
 
@@ -116,7 +116,7 @@ npm run preview
 
 ### Environment Variables
 
-The application works **without** a `.env` file - users enter their SonarCloud token in the UI.
+The application works **without** a `.env` file - users enter their SonarQube Cloud token in the UI.
 
 For **testing scripts only** (optional):
 ```bash
