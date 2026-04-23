@@ -1458,7 +1458,7 @@ export default function BillingDashboard() {
                     projectsWithOrg={isMultiOrg ? mergedProjectsResult.projects : undefined}
                     preferredNclocMap={projectNclocMap}
                     onProjectsSelected={setSelectedProjects}
-                    projectKeysInSelectedOrgs={allPrivateProjectKeys.length > 0 ? allPrivateProjectKeys : undefined}
+                    projectKeysInSelectedOrgs={viewMode === 'multi' || isMultiOrg ? allPrivateProjectKeys : undefined}
                   />
 
                   {(selectedProjects.length > 0 || projectKeysFromAssignments.length > 0) && (

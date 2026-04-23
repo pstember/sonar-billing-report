@@ -53,10 +53,11 @@ export default function CostCenters({ organization, onProjectsSelected, projects
   );
 
   // When org scope is provided, only show assignments for projects in selected org(s) in "Projects in scope" and recap
+  // undefined → no scope filter (single-org: show all)
+  // []       → scope is explicitly empty (multi-org, 0 orgs selected: show nothing)
+  // [..keys] → filter to those keys
   const inScopeSet = useMemo(
-    () => (projectKeysInSelectedOrgs != null && projectKeysInSelectedOrgs.length > 0
-      ? new Set(projectKeysInSelectedOrgs)
-      : null),
+    () => projectKeysInSelectedOrgs != null ? new Set(projectKeysInSelectedOrgs) : null,
     [projectKeysInSelectedOrgs]
   );
   const projectOnlyAssignmentsInScope = useMemo(
