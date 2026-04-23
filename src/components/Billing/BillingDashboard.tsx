@@ -185,9 +185,9 @@ export default function BillingDashboard() {
   // queriedOrganizations drives API calls (debounced); selectedOrganizations drives UI checkboxes (immediate)
   const isMultiOrg = viewMode === 'multi' && queriedOrganizations.length >= 2;
 
-  // Single-org: projects and billing
+  // Single-org: projects and billing (only in single mode — multi mode uses mergedProjectsResult)
   const { data: allProjects } = useProjects({
-    organization: isMultiOrg ? undefined : selectedOrganization?.key,
+    organization: viewMode === 'single' ? selectedOrganization?.key : undefined,
   });
 
   // Multi-org: aggregated billing and merged projects
@@ -214,21 +214,21 @@ export default function BillingDashboard() {
     privateProjectCount: singlePrivateCount,
     publicProjectCount: singlePublicCount,
     isLoading: isLoadingBillingSingle,
-  } = useBillingOverview(!isMultiOrg && selectedOrganization ? { key: selectedOrganization.key, uuid: selectedOrganization.uuid } : undefined);
+  } = useBillingOverview(viewMode === 'single' && selectedOrganization ? { key: selectedOrganization.key, uuid: selectedOrganization.uuid } : undefined);
 
-  const consumed = isMultiOrg ? multiBilling.consumed : singleConsumed;
-  const limit = isMultiOrg ? multiBilling.limit : singleLimit;
-  const privateProjectCount = isMultiOrg ? multiBilling.privateProjectCount : singlePrivateCount;
-  const publicProjectCount = isMultiOrg ? multiBilling.publicProjectCount : singlePublicCount;
-  const isLoadingBilling = isMultiOrg ? multiBilling.isLoading : isLoadingBillingSingle;
+  const consumed = viewMode === 'multi' || isMultiOrg ? multiBilling.consumed : singleConsumed;
+  const limit = viewMode === 'multi' || isMultiOrg ? multiBilling.limit : singleLimit;
+  const privateProjectCount = viewMode === 'multi' || isMultiOrg ? multiBilling.privateProjectCount : singlePrivateCount;
+  const publicProjectCount = viewMode === 'multi' || isMultiOrg ? multiBilling.publicProjectCount : singlePublicCount;
+  const isLoadingBilling = viewMode === 'multi' || isMultiOrg ? multiBilling.isLoading : isLoadingBillingSingle;
 
-  const totalProjectCount = isMultiOrg
+  const totalProjectCount = viewMode === 'multi' || isMultiOrg
     ? mergedProjectsResult.totalCount
     : (allProjects?.paging?.total ?? 0);
-  const actualPrivateProjectCount = isMultiOrg
+  const actualPrivateProjectCount = viewMode === 'multi' || isMultiOrg
     ? mergedProjectsResult.projects.filter((p) => p.visibility === 'private').length
     : (allProjects?.components?.filter((p) => p.visibility === 'private').length ?? 0);
-  const actualPublicProjectCount = isMultiOrg
+  const actualPublicProjectCount = viewMode === 'multi' || isMultiOrg
     ? mergedProjectsResult.projects.filter((p) => p.visibility === 'public').length
     : (allProjects?.components?.filter((p) => p.visibility === 'public').length ?? 0);
 

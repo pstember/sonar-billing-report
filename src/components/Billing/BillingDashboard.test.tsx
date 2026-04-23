@@ -45,9 +45,10 @@ const orgs = [
   { key: 'org2', name: 'Org 2', uuid: 'u2' },
 ];
 type MockProject = { key: string; name: string; visibility: string; organizationName?: string; organizationKey?: string };
+type MockProjectsData = { components: MockProject[]; paging?: { total: number } };
 const useEnterpriseOrganizations = vi.fn(() => ({ data: { organizations: [orgs[0]], enterpriseName: 'Test Enterprise' }, isLoading: false }));
 const useProjectsForOrganizations = vi.fn(() => ({ projects: [] as MockProject[], totalCount: 0, isLoading: false, error: null }));
-const useProjects = vi.fn(() => ({ data: { components: [] as MockProject[] }, isLoading: false }));
+const useProjects = vi.fn(() => ({ data: { components: [] as MockProject[], paging: { total: 0 } } as MockProjectsData, isLoading: false }));
 vi.mock('../../hooks/useBillingData', () => ({
   useEnterpriseOrganizations: () => useEnterpriseOrganizations(),
   useBillingOverview: () => ({
@@ -122,7 +123,7 @@ describe('BillingDashboard', () => {
     getSetting.mockResolvedValue(undefined);
     useEnterpriseOrganizations.mockReturnValue({ data: { organizations: [orgs[0]], enterpriseName: 'Test Enterprise' }, isLoading: false });
     useProjectsForOrganizations.mockReturnValue({ projects: [] as MockProject[], totalCount: 0, isLoading: false, error: null });
-    useProjects.mockReturnValue({ data: { components: [] as MockProject[] }, isLoading: false });
+    useProjects.mockReturnValue({ data: { components: [] as MockProject[], paging: { total: 0 } } as MockProjectsData, isLoading: false });
     mockProjectsRealData.projects = [];
     mockAssignments.data = [];
   });
@@ -251,5 +252,40 @@ describe('BillingDashboard', () => {
     expect(capturedCostCentersProps.organization).toBeUndefined();
     // projectsWithOrg must be [] (empty multi result), NOT undefined or single-org projects
     expect(Array.isArray(capturedCostCentersProps.projectsWithOrg)).toBe(true);
+  });
+
+  it('Projects in Scope widget shows 0/0 when viewMode=multi with no orgs selected', async () => {
+    // Bug: actualPrivateProjectCount used isMultiOrg guard; in multi+0-orgs state it fell back
+    // to allProjects (single-org), showing "0/75" instead of "0/0".
+    getSetting.mockImplementation((key: string) => {
+      if (key === 'viewMode') return Promise.resolve('multi');
+      if (key === 'selectedOrganizations') return Promise.resolve([]);
+      return Promise.resolve(undefined);
+    });
+    // Single-org has 75 private projects — the bleed source
+    const seventyFiveProjects: MockProject[] = Array.from({ length: 75 }, (_, i) => ({
+      key: `proj-${i}`,
+      name: `Project ${i}`,
+      visibility: 'private',
+    }));
+    useProjects.mockReturnValue({
+      data: { components: seventyFiveProjects, paging: { total: 75 } } as MockProjectsData,
+      isLoading: false,
+    });
+    useProjectsForOrganizations.mockReturnValue({ projects: [] as MockProject[], totalCount: 0, isLoading: false, error: null });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <BillingDashboard />
+      </QueryClientProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('cost-centers')).toBeInTheDocument();
+    });
+
+    // title="0 of N private projects assigned (in selected orgs)" — N must NOT be 75
+    const donutEl = screen.queryByTitle(/of 75 private/);
+    expect(donutEl).toBeNull();
   });
 });
