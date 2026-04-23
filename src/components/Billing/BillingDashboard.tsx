@@ -93,6 +93,9 @@ export default function BillingDashboard() {
   const [selectedOrganization, setSelectedOrganization] = useState<SelectedOrganization | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('single');
   const [selectedOrganizations, setSelectedOrganizations] = useState<SelectedOrganization[]>([]);
+  // Separate state that drives actual API queries — debounced so rapid checkbox
+  // clicks don't fire a new wave of API calls on every single toggle.
+  const [queriedOrganizations, setQueriedOrganizations] = useState<SelectedOrganization[]>([]);
   const [showLOCExplainer, setShowLOCExplainer] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingSteps, setOnboardingSteps] = useState({
@@ -130,7 +133,10 @@ export default function BillingDashboard() {
           getSetting<typeof celebrationMilestones>('celebrationMilestones'),
         ]);
         if (mode && (mode === 'single' || mode === 'multi' || mode === 'all')) setViewMode(mode);
-        if (Array.isArray(orgs) && orgs.length > 0) setSelectedOrganizations(orgs);
+        if (Array.isArray(orgs) && orgs.length > 0) {
+          setSelectedOrganizations(orgs);
+          setQueriedOrganizations(orgs); // no debounce on initial load
+        }
         if (!onboardingCompleted) setShowOnboarding(true);
         if (steps) setOnboardingSteps(steps);
         if (milestones) setCelebrationMilestones(milestones);
@@ -141,9 +147,13 @@ export default function BillingDashboard() {
 
   const saveOrgsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleOrganizationsChange = useCallback((orgs: SelectedOrganization[]) => {
+    // Update checkbox UI immediately (low-priority render)
     startTransition(() => { setSelectedOrganizations(orgs); });
+    // Debounce both the API queries and the DB write so rapid checkbox clicks
+    // don't fire a new wave of network requests on every single toggle.
     if (saveOrgsTimer.current) clearTimeout(saveOrgsTimer.current);
     saveOrgsTimer.current = setTimeout(() => {
+      setQueriedOrganizations(orgs);
       saveSetting('selectedOrganizations', orgs).catch(() => {});
     }, 400);
   }, []);
@@ -155,7 +165,8 @@ export default function BillingDashboard() {
     if (viewMode === 'multi' && selectedOrganizations.length > 0) setSelectedProjects([]);
   }, [viewMode, selectedOrganization, selectedOrganizations]);
 
-  const isMultiOrg = viewMode === 'multi' && selectedOrganizations.length >= 2;
+  // queriedOrganizations drives API calls (debounced); selectedOrganizations drives UI checkboxes (immediate)
+  const isMultiOrg = viewMode === 'multi' && queriedOrganizations.length >= 2;
 
   // Single-org: projects and billing
   const { data: allProjects } = useProjects({
@@ -163,9 +174,9 @@ export default function BillingDashboard() {
   });
 
   // Multi-org: aggregated billing and merged projects
-  const multiBilling = useMultiOrgBillingOverview(isMultiOrg ? selectedOrganizations : []);
+  const multiBilling = useMultiOrgBillingOverview(isMultiOrg ? queriedOrganizations : []);
   // All-org view needs project counts with visibility; projects search has it, billing NCLOC often does not
-  const orgsForProjectList = isMultiOrg ? selectedOrganizations : (viewMode === 'all' ? enterpriseOrgs : []);
+  const orgsForProjectList = isMultiOrg ? queriedOrganizations : (viewMode === 'all' ? enterpriseOrgs : []);
   const mergedProjectsResult = useProjectsForOrganizations(orgsForProjectList);
 
   // All-org summary: per-org billing data when view is "All organizations"

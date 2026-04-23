@@ -403,7 +403,7 @@ describe('SonarCloudService', () => {
     it('throws when resourceId is missing', async () => {
       await expect(
         service.getConsumptionSummaries({})
-      ).rejects.toThrow('resourceId (organization UUID) is required for consumption summaries API');
+      ).rejects.toThrow('resourceId or parentResourceId is required for consumption summaries API');
       expect(mockFetch).not.toHaveBeenCalled();
     });
   });
