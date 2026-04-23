@@ -29,8 +29,6 @@ vi.mock('../../hooks/useProjectsRealData', () => ({
 }));
 
 vi.mock('../../services/db', () => ({
-  getTagMappings: () => Promise.resolve([]),
-  migrateTagMappingsToCostCenters: () => Promise.resolve(),
   getAuthConfig: () => Promise.resolve({}),
 }));
 

@@ -5,7 +5,8 @@
 
 import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { clearAuth, clearCache, getSetting, saveSetting } from '../../services/db';
+import { clearAuth, clearCache } from '../../services/db';
+import { getSetting, saveSetting } from '../../services/store';
 import CostCenters from './CostCenters';
 import CostCalculator from './CostCalculator';
 import LOCTrendChart from '../Charts/LOCTrendChart';

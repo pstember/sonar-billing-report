@@ -16,7 +16,7 @@ import {
   getCostCenterAssignments,
   saveCostCenterAssignment,
   deleteCostCenterAssignment,
-} from '../services/db';
+} from '../services/store';
 
 /**
  * Get all tag mappings

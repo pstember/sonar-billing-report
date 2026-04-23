@@ -9,10 +9,12 @@ import type { ReactNode } from 'react';
 import BillingDashboard from './BillingDashboard';
 import type { BillingDetailsRow } from '../PivotTable/BillingPivotTable';
 
-const getSetting = vi.fn(() => Promise.resolve(undefined));
+const getSetting = vi.fn((_key: string): Promise<unknown> => Promise.resolve(undefined));
 vi.mock('../../services/db', () => ({
   clearAuth: vi.fn(),
   clearCache: vi.fn(),
+}));
+vi.mock('../../services/store', () => ({
   getSetting: (key: string) => getSetting(key),
   saveSetting: vi.fn(() => Promise.resolve()),
 }));

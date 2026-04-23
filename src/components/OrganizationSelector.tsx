@@ -4,7 +4,7 @@
  */
 
 import { useEnterpriseOrganizations, type SelectedOrganization } from '../hooks/useBillingData';
-import { saveSetting, getSetting } from '../services/db';
+import { saveSetting, getSetting } from '../services/store';
 import { useEffect, useState, useCallback } from 'react';
 
 export type { SelectedOrganization } from '../hooks/useBillingData';

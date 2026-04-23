@@ -22,7 +22,7 @@ vi.mock('../hooks/useBillingData', () => ({
   useEnterpriseOrganizations: (...args: unknown[]) => useEnterpriseOrganizations(...args),
 }));
 
-vi.mock('../services/db', () => ({
+vi.mock('../services/store', () => ({
   saveSetting: (...args: unknown[]) => saveSetting(...args),
   getSetting: (...args: unknown[]) => getSetting(...args),
 }));

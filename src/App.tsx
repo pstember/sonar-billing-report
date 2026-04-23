@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { queryClient, persister } from './config/queryClient';
 import { getAuthConfig } from './services/db';
+import { runMigrationIfNeeded } from './services/migration';
 import TokenInput from './components/Auth/TokenInput';
 import BillingDashboard from './components/Billing/BillingDashboard';
 import ThemeSelector from './components/ThemeSelector';
@@ -11,6 +12,9 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
 
   const checkAuth = async () => {
+    // Run one-time IndexedDB → SQLite migration before anything else
+    await runMigrationIfNeeded();
+
     const auth = await getAuthConfig();
     // Enterprise key is required; treat missing key as not authenticated
     setIsAuthenticated(!!(auth?.token && auth?.enterpriseKey?.trim()));

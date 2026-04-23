@@ -25,6 +25,7 @@ export default defineConfig({
       '/organizations': { target: 'http://localhost:3000', changeOrigin: true },
       '/enterprises': { target: 'http://localhost:3000', changeOrigin: true },
       '/config': { target: 'http://localhost:3000', changeOrigin: true },
+      '/store': { target: 'http://localhost:3000', changeOrigin: true },
     },
   },
 })

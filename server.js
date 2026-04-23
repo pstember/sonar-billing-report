@@ -10,6 +10,7 @@ import { createProxyMiddleware } from 'http-proxy-middleware';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import open from 'open';
+import storeRouter from './server/store.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -21,6 +22,9 @@ const SONARCLOUD_BILLING_API = 'https://api.sonarcloud.io';
 
 // Compress responses (gzip) for API and static assets
 app.use(compression());
+
+// Parse JSON bodies for /store routes
+app.use(express.json());
 
 // Add CORS middleware for all routes
 app.use((req, res, next) => {
@@ -40,6 +44,9 @@ app.use((req, res, next) => {
 //   console.log(`[REQUEST] ${req.method} ${req.url}`);
 //   next();
 // });
+
+// Persistent store — user configuration data (costCenters, assignments, billingConfig, etc.)
+app.use('/store', storeRouter);
 
 // Manual proxy for api.sonarcloud.io/billing/*
 app.use('/billing', async (req, res) => {
@@ -147,7 +154,7 @@ app.use(express.static(path.join(__dirname, 'dist')));
 // Handle SPA routing - serve index.html for all non-API, non-static routes
 app.use((req, res, next) => {
   // Skip if it's an API request or a static file
-  if (req.path.startsWith('/api') || req.path.startsWith('/billing') || req.path.startsWith('/organizations') || req.path.startsWith('/enterprises') || req.path.includes('.')) {
+  if (req.path.startsWith('/api') || req.path.startsWith('/billing') || req.path.startsWith('/organizations') || req.path.startsWith('/enterprises') || req.path.startsWith('/store') || req.path.includes('.')) {
     return next();
   }
   // Serve index.html for all other routes (SPA routing)

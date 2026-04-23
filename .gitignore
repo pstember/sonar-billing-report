@@ -29,3 +29,6 @@ dist-ssr
 
 # SonarQube / SonarCloud scanner output
 .scannerwork
+
+# SQLite database (server-side persistent store)
+data/

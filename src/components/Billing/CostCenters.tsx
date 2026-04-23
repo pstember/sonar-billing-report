@@ -5,7 +5,7 @@
  */
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
-import { useQueryClient, useQueries } from '@tanstack/react-query';
+import { useQueries } from '@tanstack/react-query';
 import {
   useCostCenters,
   useCostCenterAssignments,
@@ -16,7 +16,7 @@ import {
 } from '../../hooks/useBilling';
 import { useProjects, type ProjectWithOrganization } from '../../hooks/useSonarCloudData';
 import { useProjectsRealData } from '../../hooks/useProjectsRealData';
-import { getTagMappings, migrateTagMappingsToCostCenters, getAuthConfig } from '../../services/db';
+import { getAuthConfig } from '../../services/db';
 import SonarCloudService from '../../services/sonarcloud';
 import ProjectList from '../Portfolio/ProjectList';
 import type { CostCenter } from '../../types/billing';
@@ -33,7 +33,6 @@ interface CostCentersProps {
 }
 
 export default function CostCenters({ organization, onProjectsSelected, projectsWithOrg, preferredNclocMap, projectKeysInSelectedOrgs }: Readonly<CostCentersProps>) {
-  const queryClient = useQueryClient();
   const migrationDone = useRef(false);
 
   const { data: costCenters = [], isLoading: loadingCC } = useCostCenters();
@@ -71,18 +70,11 @@ export default function CostCenters({ organization, onProjectsSelected, projects
 
   const { projects: projectsWithNcloc = [] } = useProjectsRealData(selectedProjectKeys);
 
+  // migrationDone ref kept for future use but legacy tag-mapping migration removed
+  // (data now lives in SQLite, old Dexie migration no longer needed)
   useEffect(() => {
-    if (migrationDone.current || costCenters.length > 0) return;
     migrationDone.current = true;
-    void getTagMappings().then((mappings) => {
-      if (mappings.length > 0) {
-        void migrateTagMappingsToCostCenters().then(() => {
-          void queryClient.invalidateQueries({ queryKey: ['costCenters'] });
-          void queryClient.invalidateQueries({ queryKey: ['costCenterAssignments'] });
-        });
-      }
-    });
-  }, [costCenters.length, queryClient]);
+  }, []);
   const saveCC = useSaveCostCenter();
   const deleteCC = useDeleteCostCenter();
   const saveAssignment = useSaveCostCenterAssignment();

@@ -35,7 +35,7 @@ const getCostCenterAssignments = vi.fn();
 const saveCostCenterAssignment = vi.fn();
 const deleteCostCenterAssignment = vi.fn();
 
-vi.mock('../services/db', () => ({
+vi.mock('../services/store', () => ({
   getTagMappings: (...args: unknown[]) => getTagMappings(...args),
   saveTagMapping: (...args: unknown[]) => saveTagMapping(...args),
   deleteTagMapping: (...args: unknown[]) => deleteTagMapping(...args),
