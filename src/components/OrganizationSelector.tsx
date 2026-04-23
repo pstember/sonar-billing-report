@@ -42,16 +42,18 @@ export default function OrganizationSelector(props: OrganizationSelectorProps) {
       const saved = await getSetting<string>('selectedOrganization');
       if (saved) {
         const org = organizations.find(org => org.key === saved);
-        if (org) {
+        // Only restore saved org if the user is a member (isMember===false means explicitly non-member; undefined = old cache, treat as member)
+        if (org && org.isMember !== false) {
           setSelectedOrg(saved);
-          onOrganizationChange({ key: org.key, name: org.name, uuid: org.uuid });
+          onOrganizationChange(org);
           return;
         }
       }
 
-      const firstOrg = organizations[0];
+      // Auto-select first member org (isMember===false means explicitly excluded; undefined = old cache, treat as member)
+      const firstOrg = organizations.find(o => o.isMember !== false) ?? organizations[0];
       setSelectedOrg(firstOrg.key);
-      onOrganizationChange({ key: firstOrg.key, name: firstOrg.name, uuid: firstOrg.uuid });
+      onOrganizationChange(firstOrg);
     };
     void loadSavedOrg();
   }, [organizations, multiSelect]);
@@ -71,14 +73,14 @@ export default function OrganizationSelector(props: OrganizationSelectorProps) {
       const onOrganizationChange = (props as OrganizationSelectorPropsSingle).onOrganizationChange;
       setSelectedOrg(orgKey);
       await saveSetting('selectedOrganization', orgKey);
-      onOrganizationChange({ key: org.key, name: org.name, uuid: org.uuid });
+      onOrganizationChange(org);
     },
     [organizations, multiSelect, props]
   );
 
   const handleToggleMulti = useCallback(
     (org: SelectedOrganization, checked: boolean) => {
-      if (!multiSelect) return;
+      if (!multiSelect || org.isMember === false) return;
       const { onOrganizationsChange } = props as OrganizationSelectorPropsMulti;
       const next = new Set(selectedKeysMulti);
       if (checked) next.add(org.key);
@@ -164,14 +166,22 @@ export default function OrganizationSelector(props: OrganizationSelectorProps) {
         </div>
         <div className="flex-1 px-4 py-2 flex flex-wrap gap-3 items-center">
           {organizations.map((org) => (
-            <label key={org.key} className="flex items-center gap-2 cursor-pointer">
+            <label
+              key={org.key}
+              className={`flex items-center gap-2 ${org.isMember === false ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+              title={org.isMember === false ? 'Not a member — cannot access project details' : undefined}
+            >
               <input
                 type="checkbox"
                 checked={selectedKeysMulti.has(org.key)}
                 onChange={(e) => handleToggleMulti(org, e.target.checked)}
-                className="rounded border-gray-400 text-sonar-blue focus:ring-sonar-blue"
+                disabled={org.isMember === false}
+                className="rounded border-gray-400 text-sonar-blue focus:ring-sonar-blue disabled:cursor-not-allowed"
               />
               <span className="text-sm font-medium text-gray-900 dark:text-white">{org.name}</span>
+              {org.isMember === false && (
+                <span className="text-xs text-gray-400 dark:text-slate-500">— not a member</span>
+              )}
             </label>
           ))}
         </div>
@@ -193,8 +203,8 @@ export default function OrganizationSelector(props: OrganizationSelectorProps) {
         className="flex-1 px-4 py-2 bg-transparent text-sm font-semibold text-gray-900 dark:text-white font-body focus:outline-none focus:ring-2 focus:ring-sonar-blue cursor-pointer"
       >
         {organizations.map((org) => (
-          <option key={org.key} value={org.key}>
-            {org.name} ({org.key})
+          <option key={org.key} value={org.key} disabled={org.isMember === false}>
+            {org.isMember === false ? `${org.name} (${org.key}) — not a member` : `${org.name} (${org.key})`}
           </option>
         ))}
       </select>
