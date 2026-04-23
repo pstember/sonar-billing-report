@@ -1453,9 +1453,9 @@ export default function BillingDashboard() {
                   </div>
 
                   <CostCenters
-                    key={isMultiOrg ? `multi-${selectedOrganizations.map((o) => o.key).join(',')}` : (selectedOrganization?.key ?? 'no-org')}
-                    organization={isMultiOrg ? undefined : selectedOrganization?.key}
-                    projectsWithOrg={isMultiOrg ? mergedProjectsResult.projects : undefined}
+                    key={viewMode === 'multi' ? `multi-${selectedOrganizations.map((o) => o.key).join(',')}` : (selectedOrganization?.key ?? 'no-org')}
+                    organization={viewMode === 'single' ? selectedOrganization?.key : undefined}
+                    projectsWithOrg={viewMode === 'multi' || isMultiOrg ? mergedProjectsResult.projects : undefined}
                     preferredNclocMap={projectNclocMap}
                     onProjectsSelected={setSelectedProjects}
                     projectKeysInSelectedOrgs={viewMode === 'multi' || isMultiOrg ? allPrivateProjectKeys : undefined}

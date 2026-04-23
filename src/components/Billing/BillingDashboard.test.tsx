@@ -18,7 +18,13 @@ vi.mock('../../services/store', () => ({
   saveSetting: vi.fn(() => Promise.resolve()),
 }));
 
-vi.mock('./CostCenters', () => ({ default: () => <div data-testid="cost-centers">CostCenters</div> }));
+let capturedCostCentersProps: { organization?: string; projectsWithOrg?: unknown[] } = {};
+vi.mock('./CostCenters', () => ({
+  default: (props: { organization?: string; projectsWithOrg?: unknown[] }) => {
+    capturedCostCentersProps = { organization: props.organization, projectsWithOrg: props.projectsWithOrg };
+    return <div data-testid="cost-centers">CostCenters</div>;
+  },
+}));
 vi.mock('./CostCalculator', () => ({ default: () => <div data-testid="cost-calculator">CostCalculator</div> }));
 vi.mock('../Charts/LOCTrendChart', () => ({ default: () => <div data-testid="loc-trend-chart">LOCTrendChart</div> }));
 vi.mock('../Charts/TeamCostPieChart', () => ({ default: () => <div data-testid="team-cost-pie">TeamCostPieChart</div> }));
@@ -112,6 +118,7 @@ describe('BillingDashboard', () => {
     queryClient = new QueryClient();
     vi.clearAllMocks();
     capturedPivotData = [];
+    capturedCostCentersProps = {};
     getSetting.mockResolvedValue(undefined);
     useEnterpriseOrganizations.mockReturnValue({ data: { organizations: [orgs[0]], enterpriseName: 'Test Enterprise' }, isLoading: false });
     useProjectsForOrganizations.mockReturnValue({ projects: [] as MockProject[], totalCount: 0, isLoading: false, error: null });
@@ -213,5 +220,36 @@ describe('BillingDashboard', () => {
     // The leaked project should NOT appear — no orgs are selected in multi mode
     const projectKeys = capturedPivotData.map((r) => r.projectKey);
     expect(projectKeys).not.toContain('leaked-proj');
+  });
+
+  it('passes organization=undefined and projectsWithOrg=[] to CostCenters when viewMode=multi with no orgs selected', async () => {
+    // Bug: organization prop used isMultiOrg guard; when viewMode='multi' but isMultiOrg=false
+    // (< 2 orgs selected), stale selectedOrganization?.key was passed → useProjects inside
+    // CostCenters fetched 75 available-to-assign projects from the old single-org.
+    getSetting.mockImplementation((key: string) => {
+      if (key === 'viewMode') return Promise.resolve('multi');
+      if (key === 'selectedOrganizations') return Promise.resolve([]);
+      return Promise.resolve(undefined);
+    });
+    useProjects.mockReturnValue({
+      data: { components: [{ key: 'leaked-proj', name: 'Leaked', visibility: 'private' }] },
+      isLoading: false,
+    });
+    useProjectsForOrganizations.mockReturnValue({ projects: [] as MockProject[], totalCount: 0, isLoading: false, error: null });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <BillingDashboard />
+      </QueryClientProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('cost-centers')).toBeInTheDocument();
+    });
+
+    // In multi mode with no orgs, organization must be undefined — not a stale single-org key
+    expect(capturedCostCentersProps.organization).toBeUndefined();
+    // projectsWithOrg must be [] (empty multi result), NOT undefined or single-org projects
+    expect(Array.isArray(capturedCostCentersProps.projectsWithOrg)).toBe(true);
   });
 });
