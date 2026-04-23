@@ -426,34 +426,76 @@ class SonarCloudService {
 
   /**
    * Get consumption summaries (LOC consumed vs limit)
-   * Tries organization key first, falls back to resourceId if provided
+   * Supports two modes:
+   *   - Per-org: resourceId=<org-uuid>, resourceType=organization
+   *   - Enterprise (all orgs): parentResourceId=<enterprise-uuid>, parentResourceType=enterprise, resourceType=organization
    * NOTE: This endpoint is on api.sonarcloud.io (NOT sonarcloud.io/api)
    * Uses billingRequest() which doesn't add /api prefix
    */
   async getConsumptionSummaries(params?: {
     resourceId?: string;
-    organization?: string;
+    parentResourceId?: string;
+    parentResourceType?: string;
     key?: string;
     resourceType?: string;
+    mode?: string;
     pageIndex?: number;
     pageSize?: number;
   }): Promise<ConsumptionSummariesResponse> {
-    if (!params?.resourceId) {
-      throw new Error('resourceId (organization UUID) is required for consumption summaries API');
+    if (!params?.resourceId && !params?.parentResourceId) {
+      throw new Error('resourceId or parentResourceId is required for consumption summaries API');
     }
 
     const searchParams = new URLSearchParams({
-      resourceId: params.resourceId,
       key: params?.key ?? 'linesOfCode',
       resourceType: params?.resourceType ?? 'organization',
     });
 
+    if (params?.resourceId) searchParams.append('resourceId', params.resourceId);
+    if (params?.parentResourceId) searchParams.append('parentResourceId', params.parentResourceId);
+    if (params?.parentResourceType) searchParams.append('parentResourceType', params.parentResourceType);
+    if (params?.mode) searchParams.append('mode', params.mode);
     if (params?.pageIndex) searchParams.append('pageIndex', params.pageIndex.toString());
     if (params?.pageSize) searchParams.append('pageSize', params.pageSize.toString());
 
     return this.billingRequest<ConsumptionSummariesResponse>(
       `/billing/consumption-summaries?${searchParams.toString()}`
     );
+  }
+
+  /**
+   * Get consumption summaries for all orgs in an enterprise in a single call.
+   * Uses parentResourceId=<enterprise-uuid> so non-member orgs are included.
+   * Paginates until all summaries are fetched.
+   */
+  async getEnterpriseConsumptionSummaries(params: {
+    enterpriseId: string;
+    key?: string;
+  }): Promise<ConsumptionSummariesResponse> {
+    const pageSize = 100;
+    let pageIndex = 1;
+    const allSummaries: ConsumptionSummariesResponse['consumptionSummaries'] = [];
+
+    for (;;) {
+      const res = await this.getConsumptionSummaries({
+        parentResourceId: params.enterpriseId,
+        parentResourceType: 'enterprise',
+        resourceType: 'organization',
+        key: params.key ?? 'linesOfCode',
+        pageIndex,
+        pageSize,
+      });
+      const batch = res.consumptionSummaries ?? [];
+      allSummaries.push(...batch);
+      const total = res.page?.total ?? allSummaries.length;
+      if (batch.length === 0 || batch.length < pageSize || allSummaries.length >= total) break;
+      pageIndex += 1;
+    }
+
+    return {
+      consumptionSummaries: allSummaries,
+      page: { pageIndex: 1, pageSize: allSummaries.length, total: allSummaries.length },
+    };
   }
 
   /**

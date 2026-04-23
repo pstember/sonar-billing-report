@@ -56,7 +56,6 @@ export function useBillingNCLOCDistribution(params: {
  */
 export function useConsumptionSummaries(params?: {
   resourceId?: string;
-  organization?: string;
 }) {
   return useQuery({
     queryKey: ['consumptionSummaries', params],
@@ -64,7 +63,6 @@ export function useConsumptionSummaries(params?: {
       const service = await getSonarCloudService();
       return service.getConsumptionSummaries({
         resourceId: params?.resourceId,
-        organization: params?.organization,
         key: 'linesOfCode',
         resourceType: 'organization',
         pageIndex: 1,
@@ -95,6 +93,7 @@ export function useOrganizationDetails(organizationKey?: string) {
 export interface EnterpriseOrganizationsResult {
   organizations: SelectedOrganization[];
   enterpriseName?: string;
+  enterpriseId?: string;
 }
 
 /**
@@ -150,9 +149,32 @@ export function useEnterpriseOrganizations() {
       return {
         organizations,
         enterpriseName: enterprise.name,
+        enterpriseId,
       };
     },
     staleTime: 60 * 60 * 1000,
+  });
+}
+
+/**
+ * Get consumption summaries for ALL orgs in an enterprise in a single API call.
+ * Uses parentResourceId=<enterpriseId> so non-member orgs are included.
+ * Returns a Map<orgUuid, ConsumptionSummary> for easy lookup.
+ */
+export function useEnterpriseConsumptionSummaries(enterpriseId: string | undefined) {
+  return useQuery({
+    queryKey: ['enterpriseConsumptionSummaries', enterpriseId],
+    queryFn: async () => {
+      const service = await getSonarCloudService();
+      const res = await service.getEnterpriseConsumptionSummaries({ enterpriseId: enterpriseId! });
+      // Index by resourceId (org UUID) for O(1) lookup
+      const byOrgUuid = new Map(
+        (res.consumptionSummaries ?? []).map((s) => [s.resourceId, s])
+      );
+      return { summaries: res.consumptionSummaries, byOrgUuid };
+    },
+    enabled: !!enterpriseId,
+    staleTime: 5 * 60 * 1000,
   });
 }
 
@@ -252,22 +274,30 @@ export interface BillingOverviewOrg {
   totalProjects: number;
 }
 
+import type { ConsumptionSummary } from '../types/sonarcloud';
+
 /**
- * Fetch billing overview for a single org (for use in useQueries)
+ * Fetch billing overview for a single org.
+ * Accepts an optional pre-fetched consumption summary (from enterprise-level call)
+ * to avoid a redundant per-org API call.
+ * NCLOC fetch is best-effort: non-member orgs may return empty; that's OK.
  */
 async function fetchBillingOverviewForOrg(
   service: SonarCloudService,
-  org: { key: string; uuid: string; name: string }
+  org: { key: string; uuid: string; name: string },
+  prefetchedSummary?: ConsumptionSummary
 ): Promise<BillingOverviewOrg> {
   const [nclocRes, consumptionRes] = await Promise.all([
-    service.getBillingNCLOCDistributionAll({ organization: org.key }),
-    service.getConsumptionSummaries({
-      resourceId: org.uuid,
-      key: 'linesOfCode',
-      resourceType: 'organization',
-      pageIndex: 1,
-      pageSize: 1,
-    }),
+    service.getBillingNCLOCDistributionAll({ organization: org.key }).catch(() => ({ projects: [], paging: { pageIndex: 1, pageSize: 0, total: 0 } })),
+    prefetchedSummary
+      ? Promise.resolve({ consumptionSummaries: [prefetchedSummary], page: { pageIndex: 1, pageSize: 1, total: 1 } })
+      : service.getConsumptionSummaries({
+          resourceId: org.uuid,
+          key: 'linesOfCode',
+          resourceType: 'organization',
+          pageIndex: 1,
+          pageSize: 1,
+        }),
   ]);
   const privateProjects = nclocRes.projects?.filter((p) => p.visibility === 'private') ?? [];
   const publicProjects = nclocRes.projects?.filter((p) => p.visibility === 'public') ?? [];
@@ -292,15 +322,20 @@ async function fetchBillingOverviewForOrg(
 }
 
 /**
- * Multi-org billing overview: fetches per-org data in parallel and returns aggregated + byOrg
+ * Multi-org billing overview: fetches per-org data in parallel and returns aggregated + byOrg.
+ * Pass prefetchedConsumption (from useEnterpriseConsumptionSummaries) to skip per-org consumption
+ * calls and get data for non-member orgs too.
  */
-export function useMultiOrgBillingOverview(orgs: SelectedOrganization[]) {
+export function useMultiOrgBillingOverview(
+  orgs: SelectedOrganization[],
+  prefetchedConsumption?: Map<string, ConsumptionSummary>
+) {
   const queries = useQueries({
     queries: orgs.map((org) => ({
-      queryKey: ['billingOverviewOrg', org.key],
+      queryKey: ['billingOverviewOrg', org.key, !!prefetchedConsumption],
       queryFn: async () => {
         const service = await getSonarCloudService();
-        return fetchBillingOverviewForOrg(service, org);
+        return fetchBillingOverviewForOrg(service, org, prefetchedConsumption?.get(org.uuid));
       },
       staleTime: 5 * 60 * 1000,
     })),

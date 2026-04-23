@@ -20,7 +20,7 @@ import { exportToCSV, exportToExcel, exportToPDF } from '../../utils/exportUtils
 import { getCurrencySymbol } from '../../utils/costCalculations';
 import { useProjectsRealData } from '../../hooks/useProjectsRealData';
 import { useProjects, useProjectsForOrganizations } from '../../hooks/useSonarCloudData';
-import { useBillingOverview, useMultiOrgBillingOverview, useEnterpriseOrganizations } from '../../hooks/useBillingData';
+import { useBillingOverview, useMultiOrgBillingOverview, useEnterpriseOrganizations, useEnterpriseConsumptionSummaries, type BillingOverviewOrg } from '../../hooks/useBillingData';
 import { filterAssignmentsInScope } from '../../utils/assignmentScope';
 import { useCostCenters, useCostCenterAssignments, useBillingConfig } from '../../hooks/useBilling';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
@@ -40,6 +40,32 @@ function renderModeCell(rowError: unknown, isPending: boolean, mode: string | un
   if (rowError || isPending) return '—';
   if (mode) return <OrgModeBadge mode={mode} />;
   return '—';
+}
+
+/**
+ * For pooled (unreserved) orgs the per-org limit equals the shared pool size and is
+ * shown on every row — misleading. Replace with a muted label instead.
+ */
+function renderLimitCell(rowError: unknown, isPending: boolean, data: BillingOverviewOrg | undefined): ReactNode {
+  if (rowError) return '—';
+  if (isPending) return '…';
+  if (data?.mode === 'unreserved') {
+    return <span className="text-gray-400 dark:text-slate-500 italic text-xs" title="Limit is shared across all pooled organisations">Shared pool</span>;
+  }
+  return (data?.limit ?? 0).toLocaleString();
+}
+
+/**
+ * Usage % is meaningless per-org for pooled orgs (individual contribution / shared pool ≈ 0%).
+ * Show a dash instead.
+ */
+function renderUsagePercentCell(rowError: unknown, isPending: boolean, data: BillingOverviewOrg | undefined): ReactNode {
+  if (rowError) return '—';
+  if (isPending) return '…';
+  if (data?.mode === 'unreserved') {
+    return <span className="text-gray-400 dark:text-slate-500" title="Usage % is shared across all pooled organisations and is not meaningful per organisation">—</span>;
+  }
+  return `${(data?.usagePercent ?? 0).toFixed(1)}%`;
 }
 
 function OrgModeBadge({ mode }: { mode: string }) {
@@ -139,7 +165,14 @@ export default function BillingDashboard() {
 
   // All-org summary: per-org billing data when view is "All organizations"
   const isAllOrgsView = viewMode === 'all';
-  const allOrgsBilling = useMultiOrgBillingOverview(isAllOrgsView ? enterpriseOrgs : []);
+  // Enterprise-level consumption: single call covers all orgs including non-member ones
+  const { data: enterpriseConsumption } = useEnterpriseConsumptionSummaries(
+    isAllOrgsView ? enterpriseData?.enterpriseId : undefined
+  );
+  const allOrgsBilling = useMultiOrgBillingOverview(
+    isAllOrgsView ? enterpriseOrgs : [],
+    enterpriseConsumption?.byOrgUuid
+  );
 
   const {
     consumed: singleConsumed,
@@ -811,10 +844,10 @@ export default function BillingDashboard() {
                                 {tableCellContent(rowError, isPending, () => (data?.consumed ?? 0))}
                               </td>
                               <td className="px-4 py-3 text-right tabular-nums text-gray-700 dark:text-slate-300">
-                                {tableCellContent(rowError, isPending, () => (data?.limit ?? 0))}
+                                {renderLimitCell(rowError, isPending, data)}
                               </td>
                               <td className="px-4 py-3 text-right tabular-nums text-gray-700 dark:text-slate-300">
-                                {tableCellContent(rowError, isPending, () => `${(data?.usagePercent ?? 0).toFixed(1)}%`)}
+                                {renderUsagePercentCell(rowError, isPending, data)}
                               </td>
                               <td className="px-4 py-3 text-right tabular-nums text-gray-600 dark:text-slate-400">
                                 {tableCellContent(rowError, isPending, () => `${privateCount} / ${publicCount}`)}
@@ -1294,10 +1327,10 @@ export default function BillingDashboard() {
                                     {tableCellContent(rowError, isPending, () => (data?.consumed ?? 0))}
                                   </td>
                                   <td className="px-4 py-2 text-right tabular-nums text-gray-700 dark:text-slate-300">
-                                    {tableCellContent(rowError, isPending, () => (data?.limit ?? 0))}
+                                    {renderLimitCell(rowError, isPending, data)}
                                   </td>
                                   <td className="px-4 py-2 text-right tabular-nums text-gray-700 dark:text-slate-300">
-                                    {tableCellContent(rowError, isPending, () => `${(data?.usagePercent ?? 0).toFixed(1)}%`)}
+                                    {renderUsagePercentCell(rowError, isPending, data)}
                                   </td>
                                   <td className="px-4 py-2 text-right tabular-nums text-gray-600 dark:text-slate-400">
                                     {tableCellContent(rowError, isPending, () => `${privateCount} / ${publicCount}`)}
