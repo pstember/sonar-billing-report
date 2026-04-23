@@ -3,7 +3,7 @@
  * Handles SonarQube Cloud token authentication
  */
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { saveAuthConfig } from '../../services/db';
 import SonarCloudService from '../../services/sonarcloud';
 import ThemeSelector from '../ThemeSelector';
@@ -18,44 +18,45 @@ export default function TokenInput({ onSuccess }: TokenInputProps) {
   const [enterpriseKey, setEnterpriseKey] = useState('');
   const [error, setError] = useState('');
   const [isValidating, setIsValidating] = useState(false);
+  const autoSubmitRef = useRef(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-
-    if (!token.trim()) {
-      setError('Please enter your SonarQube Cloud token');
-      return;
-    }
-
-    const trimmedKey = enterpriseKey.trim();
-    if (!trimmedKey) {
-      setError('Please enter your Enterprise Key. It identifies your enterprise and filters the list of organizations in the dashboard.');
-      return;
-    }
-
-    setIsValidating(true);
-
-    try {
-      // Create service instance to validate
-      const service = new SonarCloudService({
-        baseUrl,
-        token,
-        enterpriseKey: trimmedKey,
+  // Pre-fill credentials from .env if the server exposes them
+  useEffect(() => {
+    fetch('/config')
+      .then((r) => r.json())
+      .then((cfg: { token: string | null; enterpriseKey: string | null }) => {
+        if (cfg.token) setToken(cfg.token);
+        if (cfg.enterpriseKey) setEnterpriseKey(cfg.enterpriseKey);
+        if (cfg.token && cfg.enterpriseKey) {
+          autoSubmitRef.current = true;
+        }
+      })
+      .catch(() => {
+        // No /config or fetch failed — user fills in manually
       });
+  }, []);
 
-      // Validate token
+  // Auto-submit once both fields are populated from env
+  useEffect(() => {
+    if (autoSubmitRef.current && token && enterpriseKey) {
+      autoSubmitRef.current = false;
+      void doValidate(token, baseUrl, enterpriseKey);
+    }
+  }, [token, enterpriseKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const doValidate = async (t: string, url: string, key: string) => {
+    setError('');
+    setIsValidating(true);
+    try {
+      const service = new SonarCloudService({ baseUrl: url, token: t, enterpriseKey: key });
       const isValid = await service.validateToken();
-
       if (!isValid) {
         setError('Invalid token. Please check your token and try again.');
         setIsValidating(false);
         return;
       }
-
-      // Validate enterprise key: resolve UUID then fetch org list (enterprise-organizations uses enterpriseId)
       try {
-        const enterprises = await service.getEnterpriseDetails(trimmedKey);
+        const enterprises = await service.getEnterpriseDetails(key);
         const enterpriseId = enterprises?.[0]?.id;
         if (!enterpriseId) {
           setError('Invalid or unauthorized Enterprise Key. Please check the key and try again.');
@@ -68,21 +69,29 @@ export default function TokenInput({ onSuccess }: TokenInputProps) {
         setIsValidating(false);
         return;
       }
-
-      // Save to database — enterprise key is required; org is selected in dashboard
-      await saveAuthConfig({
-        token,
-        baseUrl,
-        enterpriseKey: trimmedKey,
-        organization: undefined,
-        organizationName: undefined,
-      });
-
+      await saveAuthConfig({ token: t, baseUrl: url, enterpriseKey: key, organization: undefined, organizationName: undefined });
       onSuccess();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to validate token');
       setIsValidating(false);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!token.trim()) {
+      setError('Please enter your SonarQube Cloud token');
+      return;
+    }
+
+    const trimmedKey = enterpriseKey.trim();
+    if (!trimmedKey) {
+      setError('Please enter your Enterprise Key. It identifies your enterprise and filters the list of organizations in the dashboard.');
+      return;
+    }
+
+    void doValidate(token.trim(), baseUrl, trimmedKey);
   };
 
   return (

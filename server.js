@@ -3,6 +3,7 @@
  * Simple Express server that serves the app and proxies SonarQube Cloud API requests
  */
 
+import 'dotenv/config';
 import express from 'express';
 import compression from 'compression';
 import { createProxyMiddleware } from 'http-proxy-middleware';
@@ -111,6 +112,14 @@ app.use('/organizations', async (req, res) => {
     console.error('[ORGANIZATIONS PROXY ERROR]', error.message);
     res.status(500).json({ error: 'Proxy error', message: error.message });
   }
+});
+
+// Expose pre-configured credentials from env vars (localhost only, never reaches SonarCloud)
+app.get('/config', (req, res) => {
+  res.json({
+    token: process.env.SONAR_TOKEN || null,
+    enterpriseKey: process.env.SONAR_ENTERPRISE_KEY || null,
+  });
 });
 
 // CORS proxy for SonarQube Cloud API - MUST be before static files
