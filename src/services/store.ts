@@ -137,6 +137,55 @@ export async function clearHistoricalSnapshots(): Promise<void> {
   await apiFetch<void>('/historicalSnapshots', { method: 'DELETE' });
 }
 
+// ─── Sonar Projects Cache ─────────────────────────────────────────────────────
+
+export interface SonarProjectCacheEntry {
+  orgKey: string;
+  projectKey: string;
+  name: string;
+  visibility: 'public' | 'private';
+  ncloc: number;
+  tags: string[];
+  fetchedAt: string;
+}
+
+export interface SonarCacheResponse {
+  projects: SonarProjectCacheEntry[];
+  fetchedAt: string | null;
+}
+
+export interface SonarCacheSaveResult {
+  upserted: number;
+  removed: number;
+  fetchedAt: string;
+}
+
+export interface SonarProjectInput {
+  projectKey: string;
+  name: string;
+  visibility: 'public' | 'private';
+  ncloc: number;
+  tags?: string[];
+}
+
+export async function getSonarCache(orgKey: string): Promise<SonarCacheResponse> {
+  return apiFetch<SonarCacheResponse>(`/sonarCache/${encodeURIComponent(orgKey)}`);
+}
+
+export async function saveSonarCache(
+  orgKey: string,
+  projects: SonarProjectInput[],
+): Promise<SonarCacheSaveResult> {
+  return apiFetch<SonarCacheSaveResult>(`/sonarCache/${encodeURIComponent(orgKey)}`, {
+    method: 'POST',
+    body: JSON.stringify({ projects }),
+  });
+}
+
+export async function clearSonarCache(orgKey: string): Promise<void> {
+  await apiFetch<void>(`/sonarCache/${encodeURIComponent(orgKey)}`, { method: 'DELETE' });
+}
+
 // ─── One-time migration: IndexedDB → SQLite ────────────────────────────────
 
 interface MigratePayload {

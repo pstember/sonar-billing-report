@@ -68,6 +68,22 @@ await db.exec(`
     ncloc     REAL NOT NULL,
     cost      REAL NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS sonar_projects_cache (
+    org_key     TEXT NOT NULL,
+    project_key TEXT NOT NULL,
+    name        TEXT NOT NULL,
+    visibility  TEXT NOT NULL,
+    ncloc       INTEGER NOT NULL DEFAULT 0,
+    tags        TEXT,
+    fetched_at  TEXT NOT NULL,
+    PRIMARY KEY (org_key, project_key)
+  );
+
+  CREATE TABLE IF NOT EXISTS sonar_fetch_log (
+    org_key    TEXT PRIMARY KEY,
+    fetched_at TEXT NOT NULL
+  );
 `);
 
 // ─── Router ───────────────────────────────────────────────────────────────────
@@ -330,12 +346,109 @@ function mapSnapshotOut(row) {
   return { id: row.id, date: row.date, teamName: row.team_name, ncloc: row.ncloc, cost: row.cost };
 }
 
+// ── Sonar Projects Cache ──────────────────────────────────────────────────────
+
+router.get('/sonarCache/:orgKey', async (req, res) => {
+  try {
+    const { orgKey } = req.params;
+    const rows = await db.all(
+      'SELECT * FROM sonar_projects_cache WHERE org_key = ? ORDER BY project_key',
+      [orgKey],
+    );
+    const log = await db.get(
+      'SELECT fetched_at FROM sonar_fetch_log WHERE org_key = ?',
+      [orgKey],
+    );
+    res.json({ projects: rows.map(mapSonarProjectOut), fetchedAt: log?.fetched_at ?? null });
+  } catch (err) { res.status(500).json({ error: String(err) }); }
+});
+
+router.post('/sonarCache/:orgKey', async (req, res) => {
+  try {
+    const { orgKey } = req.params;
+    const { projects } = req.body;
+    if (!Array.isArray(projects)) {
+      return res.status(400).json({ error: 'Expected { projects: [...] }' });
+    }
+    const fetchedAt = new Date().toISOString();
+    const incomingKeys = projects.map((p) => p.projectKey);
+
+    await db.run('SAVEPOINT sonar_cache_upsert');
+
+    for (const p of projects) {
+      await db.run(
+        `INSERT INTO sonar_projects_cache
+           (org_key, project_key, name, visibility, ncloc, tags, fetched_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(org_key, project_key) DO UPDATE SET
+           name=excluded.name,
+           visibility=excluded.visibility,
+           ncloc=excluded.ncloc,
+           tags=excluded.tags,
+           fetched_at=excluded.fetched_at`,
+        [orgKey, p.projectKey, p.name, p.visibility, p.ncloc ?? 0,
+          p.tags != null ? JSON.stringify(p.tags) : null, fetchedAt],
+      );
+    }
+
+    let removed = 0;
+    if (incomingKeys.length > 0) {
+      const placeholders = incomingKeys.map(() => '?').join(',');
+      const result = await db.run(
+        `DELETE FROM sonar_projects_cache WHERE org_key = ? AND project_key NOT IN (${placeholders})`,
+        [orgKey, ...incomingKeys],
+      );
+      removed = result.changes ?? 0;
+    } else {
+      const result = await db.run(
+        'DELETE FROM sonar_projects_cache WHERE org_key = ?',
+        [orgKey],
+      );
+      removed = result.changes ?? 0;
+    }
+
+    await db.run(
+      `INSERT INTO sonar_fetch_log (org_key, fetched_at) VALUES (?, ?)
+       ON CONFLICT(org_key) DO UPDATE SET fetched_at=excluded.fetched_at`,
+      [orgKey, fetchedAt],
+    );
+
+    await db.run('RELEASE sonar_cache_upsert');
+    res.json({ upserted: projects.length, removed, fetchedAt });
+  } catch (err) {
+    await db.run('ROLLBACK TO sonar_cache_upsert').catch(() => {});
+    await db.run('RELEASE sonar_cache_upsert').catch(() => {});
+    res.status(500).json({ error: String(err) });
+  }
+});
+
+router.delete('/sonarCache/:orgKey', async (req, res) => {
+  try {
+    const { orgKey } = req.params;
+    await db.run('DELETE FROM sonar_projects_cache WHERE org_key = ?', [orgKey]);
+    await db.run('DELETE FROM sonar_fetch_log WHERE org_key = ?', [orgKey]);
+    res.status(204).end();
+  } catch (err) { res.status(500).json({ error: String(err) }); }
+});
+
+function mapSonarProjectOut(row) {
+  return {
+    orgKey: row.org_key,
+    projectKey: row.project_key,
+    name: row.name,
+    visibility: row.visibility,
+    ncloc: row.ncloc,
+    tags: row.tags ? JSON.parse(row.tags) : [],
+    fetchedAt: row.fetched_at,
+  };
+}
+
 // ── Migration endpoint (one-time IndexedDB → SQLite) ─────────────────────────
 
 router.post('/migrate', async (req, res) => {
   const { costCenters, costCenterAssignments, billingConfig, tagMappings, settings, historicalSnapshots } = req.body;
   try {
-    await db.run('BEGIN');
+    await db.run('SAVEPOINT migrate_savepoint');
 
     for (const cc of costCenters ?? []) {
       await db.run(
@@ -393,10 +506,12 @@ router.post('/migrate', async (req, res) => {
       }
     }
 
-    await db.run('COMMIT');
+    await db.run('RELEASE migrate_savepoint');
     res.json({ ok: true });
   } catch (err) {
-    await db.run('ROLLBACK').catch(() => {});
+    // ROLLBACK TO keeps the savepoint alive — RELEASE removes it so retries start clean
+    await db.run('ROLLBACK TO migrate_savepoint').catch(() => {});
+    await db.run('RELEASE migrate_savepoint').catch(() => {});
     res.status(500).json({ error: String(err) });
   }
 });
