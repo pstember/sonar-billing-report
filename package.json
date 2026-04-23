@@ -1,7 +1,7 @@
 {
   "name": "sonar-billing-report",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -15,7 +15,10 @@
     "server": "node server.js",
     "start": "npm run build && npm run server",
     "package": "npm run build && pkg server.js --targets node22-macos-arm64,node22-linux-x64,node22-win-x64 --output-path ./binaries",
-    "check-docs": "node scripts/check-doc-consistency.js"
+    "check-docs": "node scripts/check-doc-consistency.js",
+    "release": "release-it",
+    "release:minor": "release-it minor",
+    "release:major": "release-it major"
   },
   "bin": {
     "sonar-billing": "./server.js"
@@ -53,6 +56,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
+    "@release-it/conventional-changelog": "^10.0.6",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.0.1",
     "@testing-library/user-event": "^14.6.1",
@@ -69,6 +73,7 @@
     "globals": "^17.4.0",
     "jsdom": "^29.0.0",
     "pkg": "^5.8.1",
+    "release-it": "^20.0.0",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.56.1",
     "vite": "^8.0.0",
