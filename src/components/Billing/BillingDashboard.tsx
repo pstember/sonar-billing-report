@@ -21,9 +21,10 @@ import { exportToCSV, exportToExcel, exportToPDF } from '../../utils/exportUtils
 import { getCurrencySymbol } from '../../utils/costCalculations';
 import { useProjectsRealData } from '../../hooks/useProjectsRealData';
 import { useProjects, useProjectsForOrganizations } from '../../hooks/useSonarCloudData';
-import { useBillingOverview, useMultiOrgBillingOverview, useEnterpriseOrganizations, useEnterpriseConsumptionSummaries, type BillingOverviewOrg } from '../../hooks/useBillingData';
+import { useBillingOverview, useMultiOrgBillingOverview, useEnterpriseOrganizations, useEnterpriseConsumptionSummaries, useBillingNCLOCDistribution, type BillingOverviewOrg } from '../../hooks/useBillingData';
 import { filterAssignmentsInScope } from '../../utils/assignmentScope';
 import { useCostCenters, useCostCenterAssignments, useBillingConfig } from '../../hooks/useBilling';
+import { useSonarCacheRead, useRefetchAndCache, useAutoSaveBillingNCLOC } from '../../hooks/useSonarCache';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import { Toast } from '../Shared/Toast';
 import { HelpIcon } from '../Shared/HelpIcon';
@@ -90,6 +91,15 @@ function OrgModeBadge({ mode }: { mode: string }) {
     );
   }
   return null;
+}
+
+function formatFetchedAt(fetchedAt: string | null | undefined): string {
+  if (!fetchedAt) return 'Never';
+  const diff = Date.now() - new Date(fetchedAt).getTime();
+  const hours = diff / (1000 * 60 * 60);
+  if (hours < 1) return 'Less than 1 hour ago';
+  if (hours < 24) return `${Math.floor(hours)} hour${Math.floor(hours) === 1 ? '' : 's'} ago`;
+  return new Date(fetchedAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
 }
 
 export default function BillingDashboard() {
@@ -246,6 +256,33 @@ export default function BillingDashboard() {
   const { data: costCenters = EMPTY_ARRAY } = useCostCenters();
   const { data: allAssignments = EMPTY_ARRAY } = useCostCenterAssignments();
   const { data: billingConfig } = useBillingConfig();
+
+  // ── Sonar cache: auto-save + refetch ────────────────────────────────────────
+  // Only auto-save in single-org mode (multi-org refetch covers all orgs explicitly)
+  const { data: nclocDataForCache, isFetching: isFetchingNcloc } =
+    useBillingNCLOCDistribution({ organization: viewMode === 'single' ? selectedOrganization?.key : undefined });
+  useAutoSaveBillingNCLOC(
+    viewMode === 'single' ? selectedOrganization?.key : undefined,
+    nclocDataForCache,
+    isFetchingNcloc,
+  );
+
+  const { data: sonarCacheData } = useSonarCacheRead(
+    viewMode === 'single' ? selectedOrganization?.key : undefined,
+  );
+
+  const activeOrgKeys = useMemo(
+    () =>
+      viewMode === 'single'
+        ? (selectedOrganization ? [selectedOrganization.key] : [])
+        : viewMode === 'multi'
+        ? queriedOrganizations.map((o) => o.key)
+        : enterpriseOrgs.map((o) => o.key),
+    [viewMode, selectedOrganization, queriedOrganizations, enterpriseOrgs],
+  );
+
+  const { refetchAll, isRefetching } = useRefetchAndCache(activeOrgKeys);
+  // ────────────────────────────────────────────────────────────────────────────
 
   // Auto-check onboarding steps based on data
   useEffect(() => {
@@ -796,6 +833,24 @@ export default function BillingDashboard() {
                 <span className="text-sm font-medium text-gray-600 dark:text-slate-300">
                   Showing all organisations in {enterpriseName ? <strong className="text-sonar-purple dark:text-white">{enterpriseName}</strong> : 'enterprise'}
                 </span>
+              </div>
+            )}
+            {activeOrgKeys.length > 0 && (
+              <div className="flex items-center gap-3 px-4 py-2 bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm">
+                <span className="text-xs text-gray-500 dark:text-slate-400">
+                  Last fetched: {formatFetchedAt(sonarCacheData?.fetchedAt)}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => refetchAll()}
+                  disabled={isRefetching}
+                  className="ml-auto px-3 py-1.5 text-xs font-medium rounded-lg border-2 border-sonar-blue text-sonar-blue hover:bg-sonar-blue/5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                >
+                  {isRefetching && (
+                    <span className="inline-block w-3 h-3 border border-sonar-blue border-t-transparent rounded-full animate-spin" />
+                  )}
+                  {isRefetching ? 'Fetching…' : 'Refetch from Sonar'}
+                </button>
               </div>
             )}
           </div>

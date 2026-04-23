@@ -60,6 +60,13 @@ vi.mock('../../hooks/useBillingData', () => ({
     error: null,
   }),
   useEnterpriseConsumptionSummaries: () => ({ data: undefined, isLoading: false }),
+  useBillingNCLOCDistribution: () => ({ data: undefined, isFetching: false }),
+}));
+
+vi.mock('../../hooks/useSonarCache', () => ({
+  useSonarCacheRead: () => ({ data: undefined }),
+  useRefetchAndCache: () => ({ refetchAll: vi.fn(), isRefetching: false, lastError: null }),
+  useAutoSaveBillingNCLOC: vi.fn(),
 }));
 
 vi.mock('../../hooks/useSonarCloudData', () => ({
