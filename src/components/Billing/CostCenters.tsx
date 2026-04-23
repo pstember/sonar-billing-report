@@ -19,7 +19,11 @@ import { useProjectsRealData } from '../../hooks/useProjectsRealData';
 import { getAuthConfig } from '../../services/db';
 import SonarCloudService from '../../services/sonarcloud';
 import ProjectList from '../Portfolio/ProjectList';
-import type { CostCenter } from '../../types/billing';
+import type { CostCenter, CostCenterAssignment } from '../../types/billing';
+
+// Stable empty array — see BillingDashboard.tsx EMPTY_ARRAY comment for rationale.
+const EMPTY_ASSIGNMENTS: CostCenterAssignment[] = [];
+const EMPTY_COST_CENTERS: CostCenter[] = [];
 
 interface CostCentersProps {
   readonly organization?: string;
@@ -35,8 +39,8 @@ interface CostCentersProps {
 export default function CostCenters({ organization, onProjectsSelected, projectsWithOrg, preferredNclocMap, projectKeysInSelectedOrgs }: Readonly<CostCentersProps>) {
   const migrationDone = useRef(false);
 
-  const { data: costCenters = [], isLoading: loadingCC } = useCostCenters();
-  const { data: allAssignments = [], isLoading: loadingAssignments } = useCostCenterAssignments();
+  const { data: costCenters = EMPTY_COST_CENTERS, isLoading: loadingCC } = useCostCenters();
+  const { data: allAssignments = EMPTY_ASSIGNMENTS, isLoading: loadingAssignments } = useCostCenterAssignments();
 
   const projectOnlyAssignments = useMemo(
     () => allAssignments.filter((a) => a.type === 'project'),
