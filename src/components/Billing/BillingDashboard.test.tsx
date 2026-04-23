@@ -5,7 +5,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
 import BillingDashboard from './BillingDashboard';
 import type { BillingDetailsRow } from '../PivotTable/BillingPivotTable';
 
@@ -39,8 +38,10 @@ const orgs = [
   { key: 'org1', name: 'Org 1', uuid: 'u1' },
   { key: 'org2', name: 'Org 2', uuid: 'u2' },
 ];
+type MockProject = { key: string; name: string; visibility: string; organizationName?: string; organizationKey?: string };
 const useEnterpriseOrganizations = vi.fn(() => ({ data: { organizations: [orgs[0]], enterpriseName: 'Test Enterprise' }, isLoading: false }));
-const useProjectsForOrganizations = vi.fn(() => ({ projects: [], totalCount: 0, isLoading: false, error: null }));
+const useProjectsForOrganizations = vi.fn(() => ({ projects: [] as MockProject[], totalCount: 0, isLoading: false, error: null }));
+const useProjects = vi.fn(() => ({ data: { components: [] as MockProject[] }, isLoading: false }));
 vi.mock('../../hooks/useBillingData', () => ({
   useEnterpriseOrganizations: () => useEnterpriseOrganizations(),
   useBillingOverview: () => ({
@@ -62,7 +63,7 @@ vi.mock('../../hooks/useBillingData', () => ({
 }));
 
 vi.mock('../../hooks/useSonarCloudData', () => ({
-  useProjects: () => ({ data: { components: [] }, isLoading: false }),
+  useProjects: () => useProjects(),
   useProjectsForOrganizations: () => useProjectsForOrganizations(),
 }));
 
@@ -106,7 +107,8 @@ describe('BillingDashboard', () => {
     capturedPivotData = [];
     getSetting.mockResolvedValue(undefined);
     useEnterpriseOrganizations.mockReturnValue({ data: { organizations: [orgs[0]], enterpriseName: 'Test Enterprise' }, isLoading: false });
-    useProjectsForOrganizations.mockReturnValue({ projects: [], totalCount: 0, isLoading: false, error: null });
+    useProjectsForOrganizations.mockReturnValue({ projects: [] as MockProject[], totalCount: 0, isLoading: false, error: null });
+    useProjects.mockReturnValue({ data: { components: [] as MockProject[] }, isLoading: false });
     mockProjectsRealData.projects = [];
     mockAssignments.data = [];
   });
@@ -163,5 +165,46 @@ describe('BillingDashboard', () => {
     expect(projectKeys).not.toContain('proj-b');
     const allowedKeys = ['proj-a', '__unassigned__', '__unused__'];
     expect(projectKeys.every((k) => allowedKeys.includes(k))).toBe(true);
+  });
+
+  it('does not list projects from single-org when in multi-org view with no orgs selected', async () => {
+    // Bug: when viewMode='multi' and < 2 orgs are selected, allPrivateProjectKeys fell back
+    // to allProjects (single-org fetch), leaking the single-org's projects into the pivot table.
+    getSetting.mockImplementation((key: string) => {
+      if (key === 'viewMode') return Promise.resolve('multi');
+      if (key === 'selectedOrganizations') return Promise.resolve([]); // no orgs selected
+      return Promise.resolve(undefined);
+    });
+    // Single-org fetch returns a private project (the bleed-through source)
+    useProjects.mockReturnValue({
+      data: {
+        components: [
+          { key: 'leaked-proj', name: 'Leaked Project', visibility: 'private' },
+        ],
+      },
+      isLoading: false,
+    });
+    // Multi-org fetch returns nothing (no orgs queried)
+    useProjectsForOrganizations.mockReturnValue({ projects: [] as MockProject[], totalCount: 0, isLoading: false, error: null });
+    mockAssignments.data = [
+      { id: 'a1', costCenterId: 'cc-1', type: 'project', projectKey: 'leaked-proj', allocationPercentage: 100 },
+    ];
+    mockProjectsRealData.projects = [{ key: 'leaked-proj', name: 'Leaked Project', ncloc: 500 }];
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <BillingDashboard />
+      </QueryClientProvider>
+    );
+
+    // Wait a tick for any async state to settle
+    await waitFor(() => {
+      // pivot table should render
+      expect(screen.getByTestId('pivot-table')).toBeInTheDocument();
+    });
+
+    // The leaked project should NOT appear — no orgs are selected in multi mode
+    const projectKeys = capturedPivotData.map((r) => r.projectKey);
+    expect(projectKeys).not.toContain('leaked-proj');
   });
 });

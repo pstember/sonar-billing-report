@@ -317,10 +317,10 @@ export default function BillingDashboard() {
 
   const allPrivateProjectKeys = useMemo(
     () =>
-      isMultiOrg
+      viewMode === 'multi' || isMultiOrg
         ? mergedProjectsResult.projects.filter((p) => p.visibility === 'private').map((p) => p.key)
         : (allProjects?.components?.filter((p) => p.visibility === 'private').map((p) => p.key) ?? []),
-    [isMultiOrg, mergedProjectsResult.projects, allProjects]
+    [viewMode, isMultiOrg, mergedProjectsResult.projects, allProjects]
   );
 
   // Only treat assignments as "in scope" when their project is in the currently selected org(s)
@@ -906,7 +906,7 @@ export default function BillingDashboard() {
                                             handleOrganizationsChange(filtered);
                                           } else {
                                             // Add to selection (consistent with checkbox behavior - no view switch)
-                                            next.push({ key: org.key, name: org.name, uuid: org.uuid });
+                                            next.push({ key: org.key, name: org.name, uuid: org.uuid, isMember: org.isMember });
                                             setSelectedOrganizations(next);
                                             handleOrganizationsChange(next);
                                           }
@@ -926,7 +926,7 @@ export default function BillingDashboard() {
                                     type="button"
                                     onClick={() => {
                                       applyViewMode('single');
-                                      setSelectedOrganization({ key: org.key, name: org.name, uuid: org.uuid });
+                                      setSelectedOrganization({ key: org.key, name: org.name, uuid: org.uuid, isMember: org.isMember });
                                       saveSetting('selectedOrganization', org.key).catch(() => {});
                                     }}
                                     className="btn-sonar-primary px-3 py-1.5 text-xs font-medium rounded-lg"
