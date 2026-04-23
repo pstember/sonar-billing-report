@@ -149,6 +149,7 @@ class SonarCloudService {
   async searchOrganizations(params: {
     member?: boolean;
     organizations?: string;
+    ps?: number;
   } = {}): Promise<OrganizationsResponse> {
     const searchParams = new URLSearchParams();
 
@@ -158,6 +159,10 @@ class SonarCloudService {
 
     if (params.organizations) {
       searchParams.append('organizations', params.organizations);
+    }
+
+    if (params.ps != null) {
+      searchParams.append('ps', params.ps.toString());
     }
 
     return this.request<OrganizationsResponse>(

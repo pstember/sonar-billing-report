@@ -7,11 +7,14 @@
 import { useQuery, useQueries } from '@tanstack/react-query';
 import SonarCloudService from '../services/sonarcloud';
 import { getAuthConfig } from '../services/db';
+import { MAX_PAGE_SIZE } from '../constants/api';
 
 export interface SelectedOrganization {
   key: string;
   name: string;
   uuid: string;
+  /** True when the current token's user is a member of this org and can access its detail APIs */
+  isMember: boolean;
 }
 
 async function getSonarCloudService(): Promise<SonarCloudService> {
@@ -119,8 +122,13 @@ export function useEnterpriseOrganizations() {
         throw new Error('Enterprise not found for the given enterprise key. Please check your enterprise key.');
       }
 
-      // Get enterprise organizations with UUIDs (filtered by enterprise)
-      const enterpriseOrgs = await service.getEnterpriseOrganizations(enterpriseId);
+      // Get enterprise organizations with UUIDs (filtered by enterprise) and member org keys in parallel
+      const [enterpriseOrgs, memberOrgsRes] = await Promise.all([
+        service.getEnterpriseOrganizations(enterpriseId),
+        service.searchOrganizations({ member: true, ps: MAX_PAGE_SIZE }).catch(() => ({ organizations: [] })),
+      ]);
+
+      const memberKeys = new Set(memberOrgsRes.organizations.map((o) => o.key));
 
       // Get organization details using UUIDs
       const uuids = enterpriseOrgs.map(eo => eo.organizationUuidV4);
@@ -136,6 +144,7 @@ export function useEnterpriseOrganizations() {
             key: eo.organizationUuidV4,
             name: eo.organizationUuidV4,
             uuid: eo.organizationUuidV4,
+            isMember: memberKeys.has(eo.organizationUuidV4),
           };
         }
 
@@ -143,6 +152,7 @@ export function useEnterpriseOrganizations() {
           key: matchedOrg.key,
           name: matchedOrg.name,
           uuid: eo.organizationUuidV4,
+          isMember: memberKeys.has(matchedOrg.key),
         };
       });
 

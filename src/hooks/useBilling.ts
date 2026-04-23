@@ -76,7 +76,7 @@ export function useImportTagMappings() {
 export function useBillingConfig() {
   return useQuery({
     queryKey: ['billingConfig'],
-    queryFn: getBillingConfig,
+    queryFn: async () => (await getBillingConfig()) ?? null,
   });
 }
 

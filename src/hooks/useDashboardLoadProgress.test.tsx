@@ -35,7 +35,7 @@ describe('useDashboardLoadProgress', () => {
   });
 
   it('returns correct completed, total and percent with 2 queries (one success, one error)', async () => {
-    queryClient.setQueryData(['projects', { organization: 'my-org' }], { components: [], paging: {} });
+    queryClient.setQueryData(['projects', 'all', 'my-org'], { components: [], paging: {} });
     await queryClient
       .fetchQuery({
         queryKey: ['billingOverviewOrg', 'org-123'],
@@ -55,7 +55,7 @@ describe('useDashboardLoadProgress', () => {
   });
 
   it('items have correct label, category and subCalls for known query keys', async () => {
-    queryClient.setQueryData(['projects', { organization: 'acme' }], { components: [], paging: {} });
+    queryClient.setQueryData(['projects', 'all', 'acme'], { components: [], paging: {} });
     queryClient.setQueryData(['billingOverviewOrg', 'acme'], { some: 'data' });
 
     const wrapper = createWrapper(queryClient);

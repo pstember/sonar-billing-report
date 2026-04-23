@@ -836,11 +836,12 @@ export default function BillingDashboard() {
               </div>
             )}
             {activeOrgKeys.length > 0 && (
-              <div className="flex items-center gap-3 px-4 py-2 bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm">
-                <span className="text-xs text-gray-500 dark:text-slate-400">
+              <div data-testid="refetch-strip" className="flex items-center gap-3 px-4 py-2 bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm">
+                <span data-testid="last-fetched-label" className="text-xs text-gray-500 dark:text-slate-400">
                   Last fetched: {formatFetchedAt(sonarCacheData?.fetchedAt)}
                 </span>
                 <button
+                  data-testid="refetch-button"
                   type="button"
                   onClick={() => refetchAll()}
                   disabled={isRefetching}

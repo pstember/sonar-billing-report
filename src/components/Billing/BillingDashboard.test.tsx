@@ -288,4 +288,67 @@ describe('BillingDashboard', () => {
     const donutEl = screen.queryByTitle(/of 75 private/);
     expect(donutEl).toBeNull();
   });
+
+  it('refetch strip is hidden in single mode with no org selected (default)', async () => {
+    // Default state: viewMode='single', selectedOrganization=null → activeOrgKeys=[]
+    render(
+      <QueryClientProvider client={queryClient}>
+        <BillingDashboard />
+      </QueryClientProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('cost-centers')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByTestId('refetch-strip')).toBeNull();
+  });
+
+  it('refetch strip is hidden when viewMode=multi with no orgs selected', async () => {
+    getSetting.mockImplementation((key: string) => {
+      if (key === 'viewMode') return Promise.resolve('multi');
+      if (key === 'selectedOrganizations') return Promise.resolve([]);
+      return Promise.resolve(undefined);
+    });
+    useProjectsForOrganizations.mockReturnValue({ projects: [] as MockProject[], totalCount: 0, isLoading: false, error: null });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <BillingDashboard />
+      </QueryClientProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('cost-centers')).toBeInTheDocument();
+    });
+
+    // queriedOrganizations=[] → activeOrgKeys=[] → strip must not render
+    expect(screen.queryByTestId('refetch-strip')).toBeNull();
+  });
+
+  it('refetch strip is visible with Refetch button when viewMode=multi with orgs selected', async () => {
+    getSetting.mockImplementation((key: string) => {
+      if (key === 'viewMode') return Promise.resolve('multi');
+      if (key === 'selectedOrganizations') return Promise.resolve(orgs); // 2 orgs
+      return Promise.resolve(undefined);
+    });
+    useEnterpriseOrganizations.mockReturnValue({ data: { organizations: orgs, enterpriseName: 'Test Enterprise' }, isLoading: false });
+    useProjectsForOrganizations.mockReturnValue({ projects: [] as MockProject[], totalCount: 0, isLoading: false, error: null });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <BillingDashboard />
+      </QueryClientProvider>
+    );
+
+    // queriedOrganizations=[org1,org2] → activeOrgKeys=['org1','org2'] → strip renders
+    await waitFor(() => {
+      expect(screen.getByTestId('refetch-strip')).toBeInTheDocument();
+    });
+
+    expect(screen.getByTestId('refetch-button')).toBeInTheDocument();
+    expect(screen.getByTestId('refetch-button')).toHaveTextContent('Refetch from Sonar');
+    // No cache data → last-fetched shows "Never"
+    expect(screen.getByTestId('last-fetched-label')).toHaveTextContent('Last fetched: Never');
+  });
 });
