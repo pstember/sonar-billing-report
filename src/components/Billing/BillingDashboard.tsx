@@ -3,7 +3,7 @@
  * Integrates all billing components (single-org, multi-org aggregate, or all-org summary)
  */
 
-import { useState, useEffect, useMemo, startTransition, type ReactNode } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback, startTransition, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { clearAuth, clearCache } from '../../services/db';
 import { getSetting, saveSetting } from '../../services/store';
@@ -139,10 +139,14 @@ export default function BillingDashboard() {
     load().catch(() => {});
   }, []);
 
-  const handleOrganizationsChange = (orgs: SelectedOrganization[]) => {
+  const saveOrgsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleOrganizationsChange = useCallback((orgs: SelectedOrganization[]) => {
     startTransition(() => { setSelectedOrganizations(orgs); });
-    saveSetting('selectedOrganizations', orgs).catch(() => {});
-  };
+    if (saveOrgsTimer.current) clearTimeout(saveOrgsTimer.current);
+    saveOrgsTimer.current = setTimeout(() => {
+      saveSetting('selectedOrganizations', orgs).catch(() => {});
+    }, 400);
+  }, []);
 
   // Reset selected projects when organization(s) change (intentional sync when org changes)
   useEffect(() => {
