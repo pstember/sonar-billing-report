@@ -33,6 +33,7 @@ export function useProjectsRealData(projectKeys: string[]) {
   const projectQueries = useQueries({
     queries: projectKeys.map((key) => ({
       queryKey: ['projectFullData', key],
+      staleTime: 5 * 60 * 1000,
       queryFn: async () => {
         const auth = await getAuthConfig();
         if (!auth) return null;
@@ -85,6 +86,7 @@ export function useProjectsRealData(projectKeys: string[]) {
   const historyQueries = useQueries({
     queries: projectKeys.map((key) => ({
       queryKey: ['projectHistory', key],
+      staleTime: 10 * 60 * 1000,
       queryFn: async () => {
         const auth = await getAuthConfig();
         if (!auth) return null;

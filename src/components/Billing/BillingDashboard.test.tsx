@@ -58,6 +58,7 @@ vi.mock('../../hooks/useBillingData', () => ({
     isLoading: false,
     error: null,
   }),
+  useEnterpriseConsumptionSummaries: () => ({ data: undefined, isLoading: false }),
 }));
 
 vi.mock('../../hooks/useSonarCloudData', () => ({

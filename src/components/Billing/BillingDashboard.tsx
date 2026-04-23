@@ -316,9 +316,16 @@ export default function BillingDashboard() {
     [assignmentsInScope]
   );
 
+  // Only fetch real project data for assigned projects — not all private projects.
+  // Fetching all private project NCLOC would fire N×2 API calls per org change (one
+  // getComponentMeasures + one getComponentDetails per project), flooding the proxy and
+  // causing hundreds of rapid re-renders as each resolves. Unassigned LOC is computed
+  // from the billing API total (consumed) instead to avoid this overhead.
   const projectKeysForData = useMemo(
-    () => [...new Set(allPrivateProjectKeys.length > 0 ? allPrivateProjectKeys : [...selectedProjects, ...projectKeysFromAssignments])],
-    [allPrivateProjectKeys, selectedProjects, projectKeysFromAssignments]
+    () => projectKeysFromAssignments.length > 0
+      ? projectKeysFromAssignments
+      : selectedProjects,
+    [projectKeysFromAssignments, selectedProjects]
   );
 
   // Fetch real data for all private projects (or selected + assigned when org list not yet loaded)
@@ -387,10 +394,11 @@ export default function BillingDashboard() {
       const pct = Math.min(100, Math.max(0, a.allocationPercentage ?? 0));
       byCostCenter.set(a.costCenterId, (byCostCenter.get(a.costCenterId) ?? 0) + (ncloc * pct) / 100);
     }
-    const totalInScope = projectsData.reduce((s, p) => s + p.ncloc, 0);
+    // Use billing API total when available (avoids needing NCLOC for all private projects)
+    const totalInScope = consumed ?? projectsData.reduce((s, p) => s + p.ncloc, 0);
     const allocatedTotal = Array.from(byCostCenter.values()).reduce((s, v) => s + v, 0);
     // Cap at totalInScope so unassigned is never negative (e.g. when allocations sum to >100% per project)
-    const unallocatedLoc = Math.max(0, totalInScope - allocatedTotal);
+    const unallocatedLoc = Math.max(0, Math.round(totalInScope - allocatedTotal));
     const segments = costCenters.map((cc) => ({
       name: cc.code ? `${cc.name} (${cc.code})` : cc.name,
       value: Math.round(byCostCenter.get(cc.id) ?? 0),
@@ -400,7 +408,7 @@ export default function BillingDashboard() {
       unallocatedLoc: Math.round(unallocatedLoc),
       totalInScope,
     };
-  }, [costCenters, assignmentsInScope, projectsData]);
+  }, [costCenters, assignmentsInScope, projectsData, consumed]);
 
   const unusedLoc = limit != null && consumed != null ? Math.max(0, limit - (consumed || 0)) : undefined;
 
@@ -453,14 +461,21 @@ export default function BillingDashboard() {
       });
     }
 
-    // Single "Unassigned" row: sum all LOC not assigned to any cost center (cost to absorb at group level).
-    // Cap allocated per project at ncloc so over-allocations (e.g. 80% + 21%) don't force unassigned to 0.
-    let totalUnassignedLoc = 0;
-    for (const p of projectsData) {
-      const allocatedRaw = allocatedByProject.get(p.key) ?? 0;
-      const allocatedForProject = Math.min(allocatedRaw, p.ncloc);
-      const unassignedLoc = Math.round(Math.max(0, p.ncloc - allocatedForProject));
-      totalUnassignedLoc += unassignedLoc;
+    // Single "Unassigned" row: LOC not assigned to any cost center.
+    // Use billing API total (consumed) when available — avoids needing NCLOC for all
+    // private projects. Fall back to summing fetched project data when consumed is zero.
+    const totalAllocated = Array.from(allocatedByProject.values()).reduce((s, v) => s + v, 0);
+    let totalUnassignedLoc: number;
+    if (consumed != null && consumed > 0) {
+      totalUnassignedLoc = Math.max(0, Math.round(consumed - totalAllocated));
+    } else {
+      let sum = 0;
+      for (const p of projectsData) {
+        const allocatedRaw = allocatedByProject.get(p.key) ?? 0;
+        const allocatedForProject = Math.min(allocatedRaw, p.ncloc);
+        sum += Math.round(Math.max(0, p.ncloc - allocatedForProject));
+      }
+      totalUnassignedLoc = sum;
     }
     if (totalUnassignedLoc > 0) {
       rows.push({
@@ -536,7 +551,7 @@ export default function BillingDashboard() {
     }
     rows.splice(0, rows.length, ...shareRows);
     return { rows, totalScopeLoc };
-  }, [costCenters, assignmentsInScope, projectsData, billingConfig, limit, isMultiOrg, projectKeyToOrgName]);
+  }, [costCenters, assignmentsInScope, projectsData, billingConfig, limit, consumed, isMultiOrg, projectKeyToOrgName]);
 
   const handleLogout = async () => {
     if (confirm('Are you sure you want to log out?')) {
