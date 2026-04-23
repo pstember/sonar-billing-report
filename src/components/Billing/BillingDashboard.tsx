@@ -117,7 +117,9 @@ export default function BillingDashboard() {
   const enterpriseName = enterpriseData?.enterpriseName;
 
   const applyViewMode = (mode: ViewMode) => {
-    setViewMode(mode);
+    // Low-priority transition: keeps the browser responsive while the 1500-line
+    // component re-renders with the new view mode.
+    startTransition(() => { setViewMode(mode); });
     saveSetting('viewMode', mode).catch(() => {});
   };
 
@@ -697,6 +699,40 @@ export default function BillingDashboard() {
       maxLoc: sorted.at(-1) ?? null,
     };
   }, [projectsWithLocInScope]);
+
+  // ── Debug instrumentation ───────────────────────────────────────────────────
+  // Remove once the freeze is diagnosed. Watch the console while reproducing.
+  const _renderCount = useRef(0);
+  const _lastRenderStart = useRef(performance.now());
+  _renderCount.current += 1;
+  const _thisRender = _renderCount.current;
+  const _renderT0 = performance.now();
+
+  useEffect(() => {
+    const elapsed = performance.now() - _renderT0;
+    const gap = _renderT0 - _lastRenderStart.current;
+    _lastRenderStart.current = _renderT0;
+    const queryCount =
+      projectKeysForData.length * 3 +            // useProjectsRealData: 2 measures + 1 history per project
+      orgsForProjectList.length +                 // useProjectsForOrganizations: 1 query per org
+      (isMultiOrg ? queriedOrganizations.length : 0) + // multiBilling: 1 query per org
+      (isAllOrgsView ? enterpriseOrgs.length : 0);      // allOrgsBilling: 1 query per org
+
+    const style = elapsed > 50 ? '🔴' : elapsed > 16 ? '🟡' : '🟢';
+    console.log(
+      `%c[BillingDashboard] render #${_thisRender} ${style}`,
+      'font-weight:bold',
+      `| commit=${elapsed.toFixed(1)}ms gap=${gap.toFixed(0)}ms`,
+      `| viewMode=${viewMode}`,
+      `| orgsForProjectList=${orgsForProjectList.length}`,
+      `| allPrivateProjectKeys=${allPrivateProjectKeys.length}`,
+      `| assignmentsInScope=${assignmentsInScope.length}`,
+      `| projectKeysForData=${projectKeysForData.length}`,
+      `| projectsData=${projectsData.length}`,
+      `| estimated active queries≈${queryCount}`,
+    );
+  });
+  // ── End debug ───────────────────────────────────────────────────────────────
 
   // ONLY use data from billing API - no fallbacks to configured limits
   // consumed = total LOC used across all private projects in the organization

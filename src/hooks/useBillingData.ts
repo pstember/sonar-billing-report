@@ -332,7 +332,11 @@ export function useMultiOrgBillingOverview(
 ) {
   const queries = useQueries({
     queries: orgs.map((org) => ({
-      queryKey: ['billingOverviewOrg', org.key, !!prefetchedConsumption],
+      // Do NOT include !!prefetchedConsumption in the key. When the enterprise-level
+      // consumption data arrives later, we don't want to invalidate and re-fetch all N
+      // org queries — their results are identical whether obtained via per-org or prefetched
+      // consumption API calls. Stable key = no double-fetch on mode entry.
+      queryKey: ['billingOverviewOrg', org.key],
       queryFn: async () => {
         const service = await getSonarCloudService();
         return fetchBillingOverviewForOrg(service, org, prefetchedConsumption?.get(org.uuid));
