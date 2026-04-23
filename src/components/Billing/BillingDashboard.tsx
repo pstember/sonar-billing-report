@@ -3,7 +3,7 @@
  * Integrates all billing components (single-org, multi-org aggregate, or all-org summary)
  */
 
-import { useState, useEffect, useMemo, type ReactNode } from 'react';
+import { useState, useEffect, useMemo, startTransition, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { clearAuth, clearCache } from '../../services/db';
 import { getSetting, saveSetting } from '../../services/store';
@@ -140,7 +140,7 @@ export default function BillingDashboard() {
   }, []);
 
   const handleOrganizationsChange = (orgs: SelectedOrganization[]) => {
-    setSelectedOrganizations(orgs);
+    startTransition(() => { setSelectedOrganizations(orgs); });
     saveSetting('selectedOrganizations', orgs).catch(() => {});
   };
 

@@ -85,8 +85,7 @@ export default function OrganizationSelector(props: OrganizationSelectorProps) {
       else next.delete(org.key);
       setSelectedKeysMulti(next);
       const list = organizations?.filter((o) => next.has(o.key)) ?? [];
-      onOrganizationsChange(list);
-      void saveSetting('selectedOrganizations', list.map((o) => ({ key: o.key, name: o.name, uuid: o.uuid })));
+      onOrganizationsChange(list); // parent (BillingDashboard) handles persistence
     },
     [multiSelect, organizations, selectedKeysMulti, props]
   );
